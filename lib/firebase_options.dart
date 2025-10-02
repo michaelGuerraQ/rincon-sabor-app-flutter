@@ -50,20 +50,21 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAVs8YinxA1qa_kOBykOlx8ZVdB9aeF-zg',
-    appId: '1:84091092735:web:6675af3322d1b9584e56ca',
-    messagingSenderId: '84091092735',
-    projectId: 'app-rincon-sabor-flutter',
-    authDomain: 'app-rincon-sabor-flutter.firebaseapp.com',
-    storageBucket: 'app-rincon-sabor-flutter.firebasestorage.app',
+    apiKey: 'AIzaSyBdlLcMUihtn-lql8sCxF-LFKNbbsthpL8',
+    appId: '1:869588191521:web:a57c667a24913e12131660',
+    messagingSenderId: '869588191521',
+    projectId: 'riconsabor-b1447',
+    authDomain: 'riconsabor-b1447.firebaseapp.com',
+    storageBucket: 'riconsabor-b1447.firebasestorage.app',
+    measurementId: 'G-9KZTQ0Q8J4',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyARqZkjVe-oTCMpEmeTEisGTDAJHrpPhxg',
-    appId: '1:84091092735:android:3430072ce250cfff4e56ca',
-    messagingSenderId: '84091092735',
-    projectId: 'app-rincon-sabor-flutter',
-    storageBucket: 'app-rincon-sabor-flutter.firebasestorage.app',
+    apiKey: 'AIzaSyDKvWBUwIa4BZjsI0TYn9v3mdcpXNiChEA',
+    appId: '1:869588191521:android:00d81a1e2fec100f131660',
+    messagingSenderId: '869588191521',
+    projectId: 'riconsabor-b1447',
+    storageBucket: 'riconsabor-b1447.firebasestorage.app',
   );
 
 }

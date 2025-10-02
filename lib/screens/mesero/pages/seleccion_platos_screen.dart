@@ -10,7 +10,6 @@ import 'package:rincon_sabor_flutter/core/widgets/input_search.dart';
 import 'package:rincon_sabor_flutter/screens/mesero/components/menu_category_section.dart';
 import 'package:rincon_sabor_flutter/screens/mesero/components/pedido_fab.dart';
 
-
 class SeleccionPlatosScreen extends StatefulWidget {
   final Mesa mesa;
   final List<DetallePedido> initialDetalles;
@@ -33,14 +32,25 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
   late SeleccionPlatosViewModel _viewModel;
   final TextEditingController _searchController = TextEditingController();
 
-  // Colores del tema dark
   static const Color _darkBackground = Color(0xFF1A202C);
   static const Color _darkSurface = Color(0xFF2D3748);
   static const Color _darkSurfaceVariant = Color(0xFF4A5568);
 
   void _runAddBubble(Offset start) {
+    // CORRECCIÓN: Verificar mounted antes de acceder al Overlay
+    if (!mounted) return;
+
     final overlay = Overlay.of(context);
-    final renderBox = _fabKey.currentContext!.findRenderObject() as RenderBox;
+    final fabContext = _fabKey.currentContext;
+
+    // CORRECCIÓN: Verificar que el contexto del FAB exista
+    if (fabContext == null) return;
+
+    final renderBox = fabContext.findRenderObject() as RenderBox?;
+
+    // CORRECCIÓN: Verificar que el renderBox exista
+    if (renderBox == null) return;
+
     final end = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
     final controller = AnimationController(
       vsync: this,
@@ -64,7 +74,7 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.5),
+                    color: AppColors.primary.withOpacity(0.5),
                     blurRadius: 12,
                     offset: const Offset(0, 0),
                   ),
@@ -83,8 +93,12 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
     );
 
     overlay.insert(entry);
+
+    // CORRECCIÓN: Verificar mounted antes de remover el entry
     controller.forward().whenComplete(() {
-      entry.remove();
+      if (mounted) {
+        entry.remove();
+      }
       controller.dispose();
     });
   }
@@ -93,31 +107,45 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
   void initState() {
     super.initState();
 
-    // Crear el ViewModel aquí
     _viewModel = SeleccionPlatosViewModel();
     _viewModel.pedido = widget.initialDetalles;
     _viewModel.pedidoCodigoActual = widget.pedidoCodigo;
     _viewModel.loadData();
 
-    // Configurar listeners de socket
+    // CORRECCIÓN: Configurar listeners de socket con verificación mounted
     SocketService.onMesasActualizadasListener(() async {
-      final mesas = await MesaService.obtenerMesas();
-      final actual = mesas.firstWhere(
-        (m) => m.codigo == widget.mesa.codigo,
-        orElse: () => widget.mesa,
-      );
-      if (actual.estado == EstadoMesa.esperando && mounted) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+      if (!mounted) return;
+
+      try {
+        final mesas = await MesaService.obtenerMesas();
+        if (!mounted) return;
+
+        final actual = mesas.firstWhere(
+              (m) => m.codigo == widget.mesa.codigo,
+          orElse: () => widget.mesa,
+        );
+
+        if (actual.estado == EstadoMesa.esperando && mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
+      } catch (e) {
+        debugPrint('Error al actualizar mesas: $e');
       }
     });
 
     SocketService.onMenusActualizadosListener(() async {
-      await _viewModel.loadData();
+      if (!mounted) return;
+
+      try {
+        await _viewModel.loadData();
+      } catch (e) {
+        debugPrint('Error al actualizar menús: $e');
+      }
     });
   }
 
@@ -139,7 +167,11 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
           backgroundColor: _darkSurface,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            },
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,13 +190,13 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.primary.withValues(alpha: 0.2),
-                      AppColors.secondary.withValues(alpha:0.2),
+                      AppColors.primary.withOpacity(0.2),
+                      AppColors.secondary.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha:0.3),
+                    color: AppColors.primary.withOpacity(0.3),
                   ),
                 ),
                 child: Text(
@@ -189,7 +221,11 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: IconButton(
-                onPressed: () => _viewModel.loadData(),
+                onPressed: () {
+                  if (mounted) {
+                    _viewModel.loadData();
+                  }
+                },
                 icon: const Icon(
                   Icons.refresh_rounded,
                   color: AppColors.primary,
@@ -201,26 +237,25 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
         ),
         body: Column(
           children: [
-            // Header con información de la mesa
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withValues(alpha:0.1),
-                    AppColors.secondary.withValues(alpha:0.1),
+                    AppColors.primary.withOpacity(0.1),
+                    AppColors.secondary.withOpacity(0.1),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.primary.withValues(alpha:0.2),
+                  color: AppColors.primary.withOpacity(0.2),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha:0.2),
+                    color: Colors.black.withOpacity(0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -231,7 +266,7 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha:0.2),
+                      color: AppColors.primary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -282,21 +317,21 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
               ),
             ),
 
-            // Barra de búsqueda usando el widget reutilizable 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: CustomSearchBar(
                 controller: _searchController,
                 hintText: 'Buscar platos...',
                 onChanged: (value) {
-                  _viewModel.updateSearch(value);
+                  if (mounted) {
+                    _viewModel.updateSearch(value);
+                  }
                 },
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Lista de categorías (FILTRADAS por búsqueda)
             Expanded(
               child: Consumer<SeleccionPlatosViewModel>(
                 builder: (context, vm, _) {
@@ -312,7 +347,7 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha:0.3),
+                                  color: Colors.black.withOpacity(0.3),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -341,11 +376,18 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                     return _buildEmptyState();
                   }
 
-                  // Filtrar categorías basándose en la búsqueda
                   final categoriasVisibles = _getCategoriasVisibles(vm);
 
+                  if (categoriasVisibles.isEmpty) {
+                    return _buildNoResultsState();
+                  }
+
                   return RefreshIndicator(
-                    onRefresh: vm.loadData,
+                    onRefresh: () async {
+                      if (mounted) {
+                        await vm.loadData();
+                      }
+                    },
                     color: AppColors.primary,
                     backgroundColor: _darkSurface,
                     child: ListView(
@@ -353,11 +395,11 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
                       children: categoriasVisibles
                           .map(
                             (cat) => MenuCategorySection(
-                              categoria: cat,
-                              fabKey: _fabKey,
-                              runAddBubble: _runAddBubble,
-                            ),
-                          )
+                          categoria: cat,
+                          fabKey: _fabKey,
+                          runAddBubble: _runAddBubble,
+                        ),
+                      )
                           .toList(),
                     ),
                   );
@@ -371,26 +413,22 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
     );
   }
 
-  // Método para filtrar categorías basándose en la búsqueda
   List<dynamic> _getCategoriasVisibles(SeleccionPlatosViewModel vm) {
-    // Si no hay texto de búsqueda, mostrar todas las categorías
     if (vm.searchText.isEmpty) {
       return vm.categorias;
     }
-    
-    // Si hay búsqueda, solo mostrar categorías que tengan productos coincidentes
+
     return vm.categorias.where((categoria) {
-      // Obtener todos los menús de esta categoría
       final menusDeCategoria = vm.menus
           .where((menu) => menu.categoria?.codigo == categoria.codigo)
           .toList();
-      
-      // Verificar si algún menú coincide con la búsqueda
+
       final menusCoincidentes = menusDeCategoria.where((menu) {
-        return menu.platos.toLowerCase().contains(vm.searchText.toLowerCase()) ||
-               menu.descripcion.toLowerCase().contains(vm.searchText.toLowerCase());
+        final searchLower = vm.searchText.toLowerCase();
+        return menu.platos.toLowerCase().contains(searchLower) ||
+            menu.descripcion.toLowerCase().contains(searchLower);
       }).toList();
-      
+
       return menusCoincidentes.isNotEmpty;
     }).toList();
   }
@@ -404,11 +442,11 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
           color: _darkSurface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2),
+            color: AppColors.primary.withOpacity(0.2),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:0.3),
+              color: Colors.black.withOpacity(0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -423,15 +461,15 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withValues(alpha:0.2),
-                    AppColors.secondary.withValues(alpha:0.2),
+                    AppColors.primary.withOpacity(0.2),
+                    AppColors.secondary.withOpacity(0.2),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.primary.withValues(alpha:0.3),
+                  color: AppColors.primary.withOpacity(0.3),
                   width: 2,
                 ),
               ),
@@ -462,7 +500,11 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => _viewModel.loadData(),
+              onPressed: () {
+                if (mounted) {
+                  _viewModel.loadData();
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -475,6 +517,103 @@ class _SeleccionPlatosScreenState extends State<SeleccionPlatosScreen>
               icon: const Icon(Icons.refresh_rounded),
               label: const Text(
                 'Actualizar',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoResultsState() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: _darkSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.warning.withOpacity(0.2),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.warning.withOpacity(0.2),
+                    AppColors.secondary.withOpacity(0.2),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.warning.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 50,
+                color: AppColors.warning,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'No se encontraron resultados',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No hay platos que coincidan con "${_searchController.text}"',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (mounted) {
+                  _searchController.clear();
+                  _viewModel.updateSearch('');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.clear_rounded),
+              label: const Text(
+                'Limpiar búsqueda',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

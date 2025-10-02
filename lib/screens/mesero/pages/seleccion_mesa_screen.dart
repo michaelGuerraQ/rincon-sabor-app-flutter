@@ -23,7 +23,6 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
   String? errorMessage;
   final authService = AuthService();
 
-  // Colores del tema dark usando los valores de AppTheme.darkTheme
   static const Color _darkBackground = Color(0xFF1A202C);
   static const Color _darkSurface = Color(0xFF2D3748);
   static const Color _darkSurfaceVariant = Color(0xFF4A5568);
@@ -34,7 +33,9 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _cargarMesas();
       SocketService.initSocket(() async {
-        await _cargarMesas();
+        if (mounted) {
+          await _cargarMesas();
+        }
       });
     });
   }
@@ -46,6 +47,8 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
   }
 
   Future<void> _cargarMesas() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -59,6 +62,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
@@ -66,36 +70,32 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
     }
   }
 
+  void _mostrarMensaje(String mensaje, Color backgroundColor) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje, style: const TextStyle(color: Colors.white)),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _onMesaSelected(Mesa mesa) async {
     if (mesa.estado == EstadoMesa.mantenimiento) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Esta mesa está en mantenimiento',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      _mostrarMensaje('Esta mesa está en mantenimiento', AppColors.warning);
       return;
     }
 
-    // Mostrar loading mientras verificamos el pedido
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Container(
-        // ignore: deprecated_member_use
         color: _darkBackground.withOpacity(0.8),
         child: const Center(
-          child: CircularProgressIndicator(
-            color: AppColors.primary,
-            strokeWidth: 3,
-          ),
+          child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
         ),
       ),
     );
@@ -104,62 +104,31 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
       List<DetallePedido> detallesExistentes = [];
       String? pedidoCodigo;
 
-      // Si la mesa está esperando u ocupada, buscar pedidos activos
       if (mesa.estado == EstadoMesa.esperando || mesa.estado == EstadoMesa.ocupada) {
         final pedidosDeMesa = await PedidosService.fetchPedidosPorMesa(mesa.codigo);
-        
-        // Buscar el pedido activo (no finalizado)
+
         final pedidoActivo = pedidosDeMesa.where((pedido) {
           final estado = pedido.pedidoEstado.toLowerCase();
-          return estado != 'finalizado' && 
-                 estado != 'cancelado' && 
-                 estado != 'servido';
+          return estado != 'finalizado' && estado != 'cancelado' && estado != 'servido';
         }).firstOrNull;
-        
+
         if (pedidoActivo != null) {
           detallesExistentes = pedidoActivo.detalles;
           pedidoCodigo = pedidoActivo.pedidoCodigo;
-          
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Cargando pedido existente: ${pedidoActivo.pedidoCodigo}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                backgroundColor: AppColors.secondary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            );
+            _mostrarMensaje('Cargando pedido existente: ${pedidoActivo.pedidoCodigo}', AppColors.secondary);
           }
         } else {
-          // La mesa tiene estado esperando/ocupada pero no hay pedido activo
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'No se encontró pedido activo para esta mesa',
-                  style: TextStyle(color: Colors.white),
-                ),
-                backgroundColor: AppColors.warning,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            );
+            _mostrarMensaje('No se encontró pedido activo para esta mesa', AppColors.warning);
           }
         }
       }
 
-      // Cerrar el loading
       if (mounted) {
         Navigator.of(context).pop();
-        
-        // Navegar a la pantalla de selección de platos
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -172,25 +141,10 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
         );
       }
     } catch (e) {
-      // Cerrar el loading
       if (mounted) {
         Navigator.of(context).pop();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error al cargar pedidos: $e',
-              style: const TextStyle(color: Colors.white),
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-        
-        // Permitir continuar incluso si hay error
+        _mostrarMensaje('Error al cargar pedidos: $e', AppColors.error);
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -217,60 +171,37 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         centerTitle: true,
-        title: const Text(
-          'Seleccionar Mesa',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
-        ),
+        title: const Text('Seleccionar Mesa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white, letterSpacing: 0.5)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: _darkSurfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: _darkSurfaceVariant, borderRadius: BorderRadius.circular(12)),
             child: IconButton(
               onPressed: _cargarMesas,
-              icon: const Icon(
-                Icons.refresh_rounded,
-                color: AppColors.primary,
-              ),
+              icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
               tooltip: 'Actualizar mesas',
             ),
           ),
           Container(
             margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: _darkSurfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: _darkSurfaceVariant, borderRadius: BorderRadius.circular(12)),
             child: IconButton(
               onPressed: () async {
                 final navigator = Navigator.of(context);
                 final messenger = ScaffoldMessenger.of(context);
                 try {
                   await authService.signOut();
-                  navigator.popUntil((route) => route.isFirst);
+                  if (mounted) navigator.popUntil((route) => route.isFirst);
                 } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Error al cerrar sesión: $e',
-                        style: const TextStyle(color: Colors.white),
-                      ),
+                  if (mounted) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('Error al cerrar sesión: $e', style: const TextStyle(color: Colors.white)),
                       backgroundColor: AppColors.error,
-                    ),
-                  );
+                    ));
+                  }
                 }
               },
-              icon: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.error,
-              ),
+              icon: const Icon(Icons.logout_rounded, color: AppColors.error),
               tooltip: 'Cerrar sesión',
             ),
           ),
@@ -279,8 +210,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
       body: _buildBody(),
     );
   }
-  /// este widget construye el cuerpo de la pantalla
-  /// dependiendo del estado de carga, error o mesas disponibles
+
   Widget _buildBody() {
     if (isLoading) {
       return Center(
@@ -292,28 +222,12 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
               decoration: BoxDecoration(
                 color: _darkSurface,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
               ),
-              child: const CircularProgressIndicator(
-                color: AppColors.primary,
-                strokeWidth: 3,
-              ),
+              child: const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Cargando mesas...',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white70,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            const Text('Cargando mesas...', style: TextStyle(fontSize: 18, color: Colors.white70, fontWeight: FontWeight.w500)),
           ],
         ),
       );
@@ -328,13 +242,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
             color: _darkSurface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppColors.error.withOpacity(0.3)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -347,31 +255,12 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.error.withOpacity(0.3)),
                 ),
-                child: const Icon(
-                  Icons.error_outline_rounded,
-                  size: 40,
-                  color: AppColors.error,
-                ),
+                child: const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.error),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Error al cargar mesas',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              const Text('Error al cargar mesas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
-              Text(
-                errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                  height: 1.5,
-                ),
-              ),
+              Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.white70, height: 1.5)),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: _cargarMesas,
@@ -379,19 +268,11 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'Reintentar',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                label: const Text('Reintentar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -399,9 +280,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
       );
     }
 
-    if (mesas.isEmpty) {
-      return _buildEmptyState();
-    }
+    if (mesas.isEmpty) return _buildEmptyState();
 
     return RefreshIndicator(
       onRefresh: _cargarMesas,
@@ -409,70 +288,40 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
       backgroundColor: _darkSurface,
       child: Column(
         children: [
-          // Header con información
           Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withOpacity(0.1),
-                  AppColors.secondary.withOpacity(0.1),
-                ],
+                colors: [AppColors.primary.withOpacity(0.1), AppColors.secondary.withOpacity(0.1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
-              ),
+              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.restaurant_rounded,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
+                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.restaurant_rounded, color: AppColors.primary, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Mesas del Restaurante',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      const Text('Mesas del Restaurante', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 4),
-                      Text(
-                        '${mesas.length} mesas disponibles',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
+                      Text('${mesas.length} mesas disponibles', style: const TextStyle(fontSize: 14, color: Colors.white70)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          
-          // Leyenda de mesas
           const LeyendaMesas(),
-          
-          // Grid de mesas
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -486,10 +335,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
                 itemCount: mesas.length,
                 itemBuilder: (context, index) {
                   final mesa = mesas[index];
-                  return MesaCard(
-                    mesa: mesa,
-                    onTap: () => _onMesaSelected(mesa),
-                  );
+                  return MesaCard(mesa: mesa, onTap: () => _onMesaSelected(mesa));
                 },
               ),
             ),
@@ -507,13 +353,7 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
         decoration: BoxDecoration(
           color: _darkSurface,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -523,43 +363,22 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withOpacity(0.2),
-                    AppColors.secondary.withOpacity(0.2),
-                  ],
+                  colors: [AppColors.primary.withOpacity(0.2), AppColors.secondary.withOpacity(0.2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primary.withOpacity(0.3),
-                  width: 2,
-                ),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 2),
               ),
-              child: const Icon(
-                Icons.table_restaurant_rounded,
-                size: 50,
-                color: AppColors.primary,
-              ),
+              child: const Icon(Icons.table_restaurant_rounded, size: 50, color: AppColors.primary),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'No hay mesas disponibles',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
+            const Text('No hay mesas disponibles', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 12),
             const Text(
               'Las mesas aparecerán aquí cuando estén configuradas en el sistema',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-                height: 1.5,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.white70, height: 1.5),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
@@ -568,19 +387,11 @@ class _SeleccionMesaScreenState extends State<SeleccionMesaScreen> {
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text(
-                'Actualizar',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              label: const Text('Actualizar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ],
         ),

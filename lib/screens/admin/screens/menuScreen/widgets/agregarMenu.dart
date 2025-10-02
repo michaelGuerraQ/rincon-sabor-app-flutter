@@ -67,9 +67,8 @@ class AgregarMenuState extends State<AgregarMenu> {
             ),
           ),
           filled: true,
-          fillColor: isDark 
-            ? Colors.white.withOpacity(0.05)
-            : AppColors.background,
+          fillColor:
+          isDark ? Colors.white.withOpacity(0.05) : AppColors.background,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,
@@ -82,7 +81,7 @@ class AgregarMenuState extends State<AgregarMenu> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return ChangeNotifierProvider.value(
       value: _model,
       child: Scaffold(
@@ -93,9 +92,9 @@ class AgregarMenuState extends State<AgregarMenu> {
           leading: Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isDark 
-                ? Colors.white.withOpacity(0.1)
-                : AppColors.primary.withOpacity(0.1),
+              color: isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -162,7 +161,7 @@ class AgregarMenuState extends State<AgregarMenu> {
                               ),
                             ],
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.restaurant_menu_rounded,
                             color: Colors.white,
                             size: 32,
@@ -178,16 +177,18 @@ class AgregarMenuState extends State<AgregarMenu> {
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : AppColors.textPrimary,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppColors.textPrimary,
                                 ),
                               ),
                               Text(
                                 'Completa la información del menú',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: isDark 
-                                    ? Colors.white70 
-                                    : AppColors.textSecondary,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : AppColors.textSecondary,
                                 ),
                               ),
                             ],
@@ -203,14 +204,12 @@ class AgregarMenuState extends State<AgregarMenu> {
                     label: 'Nombre del plato',
                     isDark: isDark,
                   ),
-                  
                   _buildTextField(
                     controller: m.descCtrl,
                     label: 'Descripción',
                     isDark: isDark,
                     maxLines: 3,
                   ),
-                  
                   _buildTextField(
                     controller: m.priceCtrl,
                     label: 'Precio (S/.)',
@@ -221,11 +220,12 @@ class AgregarMenuState extends State<AgregarMenu> {
                   // Dropdown de categorías
                   Container(
                     margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isDark 
-                        ? Colors.white.withOpacity(0.05)
-                        : AppColors.background,
+                      color: isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : AppColors.background,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isDark ? Colors.white30 : AppColors.divider,
@@ -233,24 +233,28 @@ class AgregarMenuState extends State<AgregarMenu> {
                     ),
                     child: DropdownButtonFormField<String>(
                       value: m.selectedCategoria,
-                      dropdownColor: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+                      dropdownColor:
+                      isDark ? const Color(0xFF2D3748) : AppColors.surface,
                       style: TextStyle(
                         color: isDark ? Colors.white : AppColors.textPrimary,
                       ),
                       items: m.categorias
                           .map((c) => DropdownMenuItem(
-                                value: c.codigo,
-                                child: Text(c.nombre),
-                              ))
+                        value: c.codigo,
+                        child: Text(c.nombre),
+                      ))
                           .toList(),
                       onChanged: (v) => m.selectedCategoria = v,
                       decoration: InputDecoration(
                         labelText: 'Categoría',
                         labelStyle: TextStyle(
-                          color: isDark ? Colors.white70 : AppColors.textSecondary,
+                          color: isDark
+                              ? Colors.white70
+                              : AppColors.textSecondary,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding:
+                        const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -260,14 +264,14 @@ class AgregarMenuState extends State<AgregarMenu> {
                     margin: const EdgeInsets.only(bottom: 24),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isDark 
-                        ? const Color(0xFF2D3748)
-                        : AppColors.surface,
+                      color: isDark
+                          ? const Color(0xFF2D3748)
+                          : AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isDark 
-                          ? Colors.white.withOpacity(0.1)
-                          : AppColors.divider,
+                        color: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : AppColors.divider,
                       ),
                     ),
                     child: SwitchListTile(
@@ -281,7 +285,9 @@ class AgregarMenuState extends State<AgregarMenu> {
                       subtitle: Text(
                         'Indica si este plato requiere preparación con insumos',
                         style: TextStyle(
-                          color: isDark ? Colors.white70 : AppColors.textSecondary,
+                          color: isDark
+                              ? Colors.white70
+                              : AppColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -293,13 +299,11 @@ class AgregarMenuState extends State<AgregarMenu> {
                   ),
 
                   // Sección de receta
-                  RecetaSection(),
-
+                  const RecetaSection(),
                   const SizedBox(height: 24),
 
                   // Selector de imagen
-                  ImagePickerField(),
-
+                  const ImagePickerField(),
                   const SizedBox(height: 32),
 
                   // Botón de guardar
@@ -307,39 +311,101 @@ class AgregarMenuState extends State<AgregarMenu> {
                     height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: m.isSaving 
-                          ? [Colors.grey, Colors.grey.shade600]
-                          : [AppColors.primary, AppColors.primaryDark],
+                        colors: m.isSaving
+                            ? [Colors.grey, Colors.grey]
+                            : [AppColors.primary, AppColors.primaryDark],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
                           color: (m.isSaving ? Colors.grey : AppColors.primary)
-                            .withOpacity(0.3),
+                              .withOpacity(0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: m.isSaving
-                          ? null
-                          : () async {
-                              final ok = await m.submit();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    ok ? 'Menú agregado exitosamente' : 'Error al agregar menú',
-                                  ),
-                                  backgroundColor: ok ? AppColors.success : AppColors.error,
+                      onPressed: m.isSaving ? null : () async {
+                        try {
+                          // PASO 1: Guardar referencias ANTES del await
+                          final messenger = ScaffoldMessenger.of(context);
+                          final navigator = Navigator.of(context);
+
+                          // PASO 2: Ejecutar submit y capturar resultado
+                          final ok = await m.submit();
+
+                          if (ok) {
+                            // ÉXITO: Cerrar primero, mensaje después
+                            navigator.pop(true);
+
+                            // Mostrar mensaje en la pantalla anterior
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: const [
+                                    Icon(Icons.check_circle, color: Colors.white),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Menú agregado exitosamente',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              );
-                              if (ok) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  Navigator.pop(context, true);
-                                });
-                              }
-                            },
+                                backgroundColor: AppColors.success,
+                                duration: Duration(seconds: 3),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: EdgeInsets.all(16),
+                              ),
+                            );
+                          } else {
+                            // ERROR: Mostrar sin navegar
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: const [
+                                    Icon(Icons.error, color: Colors.white),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Error al agregar el menú. Intente nuevamente.',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.error,
+                                duration: Duration(seconds: 4),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: EdgeInsets.all(16),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('Error inesperado al guardar menú: $e');
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error inesperado: $e'),
+                                backgroundColor: AppColors.error,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
@@ -347,31 +413,49 @@ class AgregarMenuState extends State<AgregarMenu> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (m.isSaving) ...[
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                          ] else
-                            Icon(Icons.save_rounded, color: Colors.white),
-                          const SizedBox(width: 8),
-                          Text(
-                            m.isSaving ? 'Guardando...' : 'Guardar Menú',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: m.isSaving
+                                ? [Colors.grey.shade600, Colors.grey.shade700]
+                                : [AppColors.primary, AppColors.secondary],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                        ],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (m.isSaving) ...[
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ] else
+                                const Icon(Icons.save_rounded,
+                                    color: Colors.white, size: 24),
+                              const SizedBox(width: 8),
+                              Text(
+                                m.isSaving ? 'Guardando menú...' : 'Guardar Menú',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -170,108 +170,98 @@ class _InsumoslistscreenState extends State<Insumoslistscreen> {
     );
   }
 
-  Future<bool?> _showAgregarInsumoDialog() {
+  Future<bool?> _showAgregarInsumoDialog() async {
     final vm = context.read<InsumosViewModel>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final nombreCtrl = TextEditingController();
     final unidadCtrl = TextEditingController();
     final stockCtrl = TextEditingController();
     final costoTotalCtrl = TextEditingController();
 
-    return showDialog<bool>(
+    final result = await showDialog<bool>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF2D3748) : AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.add_rounded, color: AppColors.secondary),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 12),
-              Text(
-                'Nuevo Insumo',
-                style: TextStyle(
-                  color: isDark ? Colors.white : AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildTextField(nombreCtrl, 'Nombre', isDark),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  unidadCtrl,
-                  'Unidad de medida (Kg, unidad, etc)',
-                  isDark,
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  stockCtrl,
-                  'Cantidad comprada',
-                  isDark,
-                  isNumber: true,
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  costoTotalCtrl,
-                  'Costo total de compra',
-                  isDark,
-                  isNumber: true,
-                ),
-              ],
+              child: Icon(Icons.add_rounded, color: AppColors.secondary),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(
-                'Cancelar',
-                style: TextStyle(color: AppColors.textSecondary),
+            const SizedBox(width: 12),
+            Text(
+              'Nuevo Insumo',
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
               ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final nombre = nombreCtrl.text.trim();
-                final unidad = unidadCtrl.text.trim();
-                final cantidad = double.tryParse(stockCtrl.text) ?? 0;
-                final costoTotal = double.tryParse(costoTotalCtrl.text) ?? 0;
-
-                // Llamamos al ViewModel en lugar de al servicio directo
-                final ok = await vm.agregarInsumo(
-                  nombre: nombre,
-                  unidad: unidad,
-                  stock: cantidad,
-                  costoTotal: costoTotal,
-                );
-
-                if (!mounted) return;
-                Navigator.pop(dialogContext, ok);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Guardar'),
             ),
           ],
-        );
-      },
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(nombreCtrl, 'Nombre', isDark),
+              const SizedBox(height: 16),
+              _buildTextField(unidadCtrl, 'Unidad de medida (Kg, unidad, etc)', isDark),
+              const SizedBox(height: 16),
+              _buildTextField(stockCtrl, 'Cantidad comprada', isDark, isNumber: true),
+              const SizedBox(height: 16),
+              _buildTextField(costoTotalCtrl, 'Costo total de compra', isDark, isNumber: true),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              final nombre = nombreCtrl.text.trim();
+              final unidad = unidadCtrl.text.trim();
+              final cantidad = double.tryParse(stockCtrl.text) ?? 0;
+              final costoTotal = double.tryParse(costoTotalCtrl.text) ?? 0;
+
+              // Llamamos al ViewModel en lugar del servicio directo
+              final ok = await vm.agregarInsumo(
+                nombre: nombre,
+                unidad: unidad,
+                stock: cantidad,
+                costoTotal: costoTotal,
+              );
+
+              // CORRECCIÓN: Verificar si el contexto del diálogo sigue montado
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext, ok);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
+
+    // CORRECCIÓN: Verificar mounted del widget principal
+    if (!mounted) return null;
+
+    return result;
   }
 
   Future<bool?> _showAbastecerInsumoDialog(Insumos ins) {

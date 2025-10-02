@@ -34,17 +34,24 @@ class _HistoryPedidosScreenState extends State<HistoryPedidosScreen> {
 
   // Función para cargar los pedidos desde la API, con opción de resetear paginación
   void _loadPedidos({bool reset = false}) {
+    // CORRECCIÓN: Validar fechas antes de la llamada API
     if (_fechaDesde != null && _fechaHasta != null && _fechaHasta!.isBefore(_fechaDesde!)) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('La fecha de fin no puede ser anterior a la fecha de inicio')),
+        const SnackBar(
+          content: Text('La fecha de fin no puede ser anterior a la fecha de inicio'),
+        ),
       );
       return;
     }
 
     if (reset) {
+      if (!mounted) return;
+
       setState(() {
         _page = 1;
-        _pedidos = [];
+        _pedidos.clear();
         _hasMore = true;
         _isLoadingMore = true;
         _apiFilterWarning = false;

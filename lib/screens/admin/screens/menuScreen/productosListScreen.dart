@@ -135,78 +135,79 @@ class _ProductosListScreenState extends State<ProductosListScreen> {
     );
   }
 
-  Future<void> _mostrarDialogoEliminar(
-    Menu menu,
-    ProductosListViewModel viewModel,
-  ) async {
+  Future<void> _mostrarDialogoEliminar(Menu menu, ProductosListViewModel viewModel) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final confirmado = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor:
-                isDark ? const Color(0xFF2D3748) : AppColors.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              '¿Eliminar menú?',
-              style: TextStyle(
-                color: isDark ? Colors.white : AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            content: Text(
-              '¿Eliminar el menú "${menu.platos}"?',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : AppColors.textSecondary,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  'Cancelar',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Eliminar'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          '¿Eliminar menú?',
+          style: TextStyle(
+            color: isDark ? Colors.white : AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
           ),
+        ),
+        content: Text(
+          '¿Eliminar el menú "${menu.platos}"?',
+          style: TextStyle(
+            color: isDark ? Colors.white70 : AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
     );
+
+    // CORRECCIÓN: Verificar mounted después del diálogo
+    if (!mounted) return;
 
     if (confirmado == true) {
       final eliminado = await viewModel.eliminarProducto(menu.codigo);
-      if (mounted) {
-        if (eliminado) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Menú eliminado con éxito'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Error al eliminar el menú'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
+
+      // CORRECCIÓN: Verificar mounted después de operación async
+      if (!mounted) return;
+
+      if (eliminado) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Menú eliminado con éxito'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Error al eliminar el menú'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

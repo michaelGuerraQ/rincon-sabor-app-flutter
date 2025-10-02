@@ -92,14 +92,38 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
         nuevoEstado,
       );
 
+      // CORRECCIÓN: Verificar mounted antes de usar context
+      if (!mounted) return;
+
       if (!actualizado) {
         // Si falló, restaurar estado anterior
         setState(() {
           usuarios[index].usuarioEstado = estadoAnterior;
         });
-        throw 'No se pudo actualizar el estado.';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('No se pudo actualizar el estado'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Usuario ${activo ? 'activado' : 'desactivado'} correctamente'),
+            backgroundColor: AppColors.success,
+          ),
+        );
       }
     } catch (e) {
+      // CORRECCIÓN: Verificar mounted antes de usar context
+      if (!mounted) return;
+
+      // Restaurar estado anterior
+      setState(() {
+        usuarios[index].usuarioEstado = estadoAnterior;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al actualizar estado: $e'),
@@ -107,10 +131,12 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
         ),
       );
     } finally {
-      // Quitar indicador de carga
-      setState(() {
-        estadosCargando[index] = false;
-      });
+      // CORRECCIÓN: Verificar mounted antes de setState
+      if (mounted) {
+        setState(() {
+          estadosCargando[index] = false;
+        });
+      }
     }
   }
 

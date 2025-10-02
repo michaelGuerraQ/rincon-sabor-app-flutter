@@ -23,7 +23,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
   final _nombreController = TextEditingController();
   final _descripcionController = TextEditingController();
   final _precioController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _isLoadingInsumos = false;
   String _estadoSeleccionado = 'A';
@@ -42,40 +42,41 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
     _descripcionController.text = widget.menuDetallado.menuDescripcion;
     _precioController.text = widget.menuDetallado.menuPrecio.toString();
     _estadoSeleccionado = widget.menuDetallado.menuEstado;
-    
-    // Inicializar detalles de receta si es un producto preparado
+
     if (widget.menuDetallado.menuEsPreparado == 'A') {
-      _detallesReceta = widget.menuDetallado.detallesReceta.map((detalle) => 
-        RecetaDetalleEditable(
-          insumoCodigo: detalle.insumoCodigo,
-          insumoNombre: detalle.insumoNombre,
-          cantidad: detalle.recetaDetalleCantidadporPlato,
-          unidadMedida: detalle.insumoUnidadMedida,
-          stockActual: detalle.insumoStockActual,
-        )
+      _detallesReceta = widget.menuDetallado.detallesReceta.map((detalle) =>
+          RecetaDetalleEditable(
+            insumoCodigo: detalle.insumoCodigo,
+            insumoNombre: detalle.insumoNombre,
+            cantidad: detalle.recetaDetalleCantidadporPlato,
+            unidadMedida: detalle.insumoUnidadMedida,
+            stockActual: detalle.insumoStockActual,
+          )
       ).toList();
     }
   }
 
   Future<void> _cargarInsumos() async {
+    if (!mounted) return;
     setState(() => _isLoadingInsumos = true);
+
     try {
       final insumos = await InsumosService.listarInsumos();
+      if (!mounted) return;
       setState(() {
         _insumosDisponibles = insumos;
         _isLoadingInsumos = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoadingInsumos = false);
       debugPrint('Error al cargar insumos: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar insumos: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar insumos: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -87,10 +88,71 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
     super.dispose();
   }
 
+  // ==========================================================
+  // INICIO DE LA CORRECCIÓN PRINCIPAL
+  // ==========================================================
+  Future<void> _guardarCambios() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (widget.menuDetallado.menuEsPreparado == 'A' && _detallesReceta.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Debe agregar al menos un ingrediente'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final menuUpdateRequest = MenuUpdateRequest(
+        menuCodigo: widget.menuDetallado.menuCodigo,
+        menuPlatos: _nombreController.text.trim(),
+        menuDescripcion: _descripcionController.text.trim(),
+        menuPrecio: double.parse(_precioController.text),
+        menuEstado: _estadoSeleccionado,
+        menuImageUrl: widget.menuDetallado.menuImageUrl,
+        menuCategoriaCodigo: widget.menuDetallado.menuCategoriaCodigo,
+        menuEsPreparado: widget.menuDetallado.menuEsPreparado,
+        menuInsumoCodigo: widget.menuDetallado.insumoDirectoCodigo,
+        detallesReceta: widget.menuDetallado.menuEsPreparado == 'A'
+            ? _detallesReceta.map((detalle) =>
+            RecetaDetalle(
+              insumoCodigo: detalle.insumoCodigo,
+              cantidad: detalle.cantidad,
+            )).toList()
+            : null,
+      );
+
+      final actualizado = await MenuService.actualizarMenu(menuUpdateRequest);
+
+      // CORRECCIÓN: Si todo está bien, simplemente cerramos la pantalla
+      // y devolvemos 'true' como resultado.
+      if (!mounted) return;
+      Navigator.pop(context, actualizado); // Devuelve true si fue exitoso, false si no
+
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context, false); // En caso de error, devuelve false
+
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+  // ==========================================================
+  // FIN DE LA CORRECCIÓN PRINCIPAL
+  // ==========================================================
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -104,6 +166,14 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () {
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          },
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -112,7 +182,9 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Información del producto
+              // ... El resto de tu UI (Cards de información y receta)
+              // ... (Este código no necesita cambios, por eso se omite por brevedad)
+              // ... Tu código de Cards aquí
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -137,8 +209,6 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
-                      // Nombre del producto
                       TextFormField(
                         controller: _nombreController,
                         decoration: InputDecoration(
@@ -155,10 +225,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                           return null;
                         },
                       ),
-                      
                       const SizedBox(height: 16),
-                      
-                      // Descripción
                       TextFormField(
                         controller: _descripcionController,
                         maxLines: 3,
@@ -176,10 +243,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                           return null;
                         },
                       ),
-                      
                       const SizedBox(height: 16),
-                      
-                      // Precio
                       TextFormField(
                         controller: _precioController,
                         keyboardType: TextInputType.number,
@@ -201,10 +265,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                           return null;
                         },
                       ),
-                      
                       const SizedBox(height: 16),
-                      
-                      // Estado
                       DropdownButtonFormField<String>(
                         value: _estadoSeleccionado,
                         decoration: InputDecoration(
@@ -219,19 +280,18 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                           DropdownMenuItem(value: 'I', child: Text('Inactivo')),
                         ],
                         onChanged: (value) {
-                          setState(() {
-                            _estadoSeleccionado = value!;
-                          });
+                          if (value != null && mounted) {
+                            setState(() {
+                              _estadoSeleccionado = value;
+                            });
+                          }
                         },
                       ),
                     ],
                   ),
                 ),
               ),
-              
               const SizedBox(height: 16),
-              
-              // Gestión de receta (solo para productos preparados) - COMPLETAMENTE EDITABLE
               if (widget.menuDetallado.menuEsPreparado == 'A')
                 Card(
                   elevation: 4,
@@ -258,7 +318,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.1),
+                                color: AppColors.success.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -281,19 +341,17 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
-                        // Botón para agregar ingredientes
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _isLoadingInsumos ? null : _mostrarDialogoAgregarInsumo,
-                            icon: _isLoadingInsumos 
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.add, size: 20),
+                            icon: _isLoadingInsumos
+                                ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                                : const Icon(Icons.add, size: 20),
                             label: Text(_isLoadingInsumos ? 'Cargando insumos...' : 'Agregar Ingrediente'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.success,
@@ -305,18 +363,15 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                             ),
                           ),
                         ),
-                        
                         const SizedBox(height: 16),
-                        
-                        // Lista de ingredientes actuales
                         if (_detallesReceta.isEmpty)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.1),
+                              color: AppColors.warning.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                             ),
                             child: Column(
                               children: [
@@ -361,12 +416,12 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                                   margin: EdgeInsets.only(bottom: index < _detallesReceta.length - 1 ? 12 : 0),
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: isDark 
-                                      ? const Color(0xFF1A202C).withValues(alpha: 0.5)
-                                      : Colors.grey.withValues(alpha: 0.05),
+                                    color: isDark
+                                        ? const Color(0xFF1A202C).withOpacity(0.5)
+                                        : Colors.grey.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppColors.primary.withValues(alpha: 0.2),
+                                      color: AppColors.primary.withOpacity(0.2),
                                     ),
                                   ),
                                   child: Row(
@@ -374,7 +429,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary.withValues(alpha: 0.1),
+                                          color: AppColors.primary.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Icon(
@@ -407,7 +462,6 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      // Campo editable para cantidad
                                       SizedBox(
                                         width: 100,
                                         child: TextFormField(
@@ -425,7 +479,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                                           ),
                                           onChanged: (value) {
                                             final cantidad = double.tryParse(value);
-                                            if (cantidad != null && cantidad > 0) {
+                                            if (cantidad != null && cantidad > 0 && mounted) {
                                               setState(() {
                                                 _detallesReceta[index].cantidad = cantidad;
                                               });
@@ -441,14 +495,14 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      // Botón eliminar
                                       Container(
                                         decoration: BoxDecoration(
-                                          color: AppColors.error.withValues(alpha: 0.1),
+                                          color: AppColors.error.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: IconButton(
                                           onPressed: () {
+                                            if (!mounted) return;
                                             setState(() {
                                               _detallesReceta.removeAt(index);
                                             });
@@ -475,15 +529,17 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                     ),
                   ),
                 ),
-              
               const SizedBox(height: 24),
-              
               // Botones de acción
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isLoading ? null : () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () {
+                        if (mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -497,7 +553,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _guardarCambios,
+                      onPressed: _isLoading ? null : _guardarCambios, // Llama al método corregido
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -508,13 +564,13 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
                           : const Text('Guardar Cambios'),
                     ),
                   ),
@@ -529,6 +585,7 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
 
   void _mostrarDialogoAgregarInsumo() {
     if (_insumosDisponibles.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('No hay insumos disponibles para agregar'),
@@ -537,10 +594,9 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
       );
       return;
     }
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Icon(Icons.add_circle_outline, color: AppColors.success),
@@ -557,9 +613,9 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
               Text(
                 'Selecciona un insumo para agregar a la receta:',
                 style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.white70 
-                    : AppColors.textSecondary,
+                  color: Theme.of(dialogContext).brightness == Brightness.dark
+                      ? Colors.white70
+                      : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -569,16 +625,16 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                   itemBuilder: (context, index) {
                     final insumo = _insumosDisponibles[index];
                     final yaAgregado = _detallesReceta.any((d) => d.insumoCodigo == insumo.codigo);
-                    
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: yaAgregado 
-                              ? Colors.grey.withValues(alpha: 0.3)
-                              : AppColors.primary.withValues(alpha: 0.1),
+                            color: yaAgregado
+                                ? Colors.grey.withOpacity(0.3)
+                                : AppColors.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -600,23 +656,24 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                             color: yaAgregado ? Colors.grey : null,
                           ),
                         ),
-                        trailing: yaAgregado 
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'Ya agregado',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            )
-                          : Icon(Icons.add_circle, color: AppColors.success),
+                        trailing: yaAgregado
+                            ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Ya agregado',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        )
+                            : Icon(Icons.add_circle, color: AppColors.success),
                         onTap: yaAgregado ? null : () {
+                          if (!mounted) return;
                           setState(() {
                             _detallesReceta.add(RecetaDetalleEditable(
                               insumoCodigo: insumo.codigo!,
@@ -626,7 +683,10 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
                               stockActual: insumo.stockActual!,
                             ));
                           });
-                          Navigator.pop(context);
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
+                          if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('${insumo.nombre} agregado a la receta'),
@@ -645,91 +705,21 @@ class _EditarProductoScreenState extends State<EditarProductoScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+            },
             child: const Text('Cerrar'),
           ),
         ],
       ),
     );
   }
-
-  Future<void> _guardarCambios() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    // Validar que tenga al menos un ingrediente si es preparado
-    if (widget.menuDetallado.menuEsPreparado == 'A' && _detallesReceta.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Debe agregar al menos un ingrediente a la receta'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Crear el DTO para actualizar
-      final menuUpdateRequest = MenuUpdateRequest(
-        menuCodigo: widget.menuDetallado.menuCodigo,
-        menuPlatos: _nombreController.text.trim(),
-        menuDescripcion: _descripcionController.text.trim(),
-        menuPrecio: double.parse(_precioController.text),
-        menuEstado: _estadoSeleccionado,
-        menuImageUrl: widget.menuDetallado.menuImageUrl,
-        menuCategoriaCodigo: widget.menuDetallado.menuCategoriaCodigo,
-        menuEsPreparado: widget.menuDetallado.menuEsPreparado,
-        menuInsumoCodigo: widget.menuDetallado.insumoDirectoCodigo,
-        detallesReceta: widget.menuDetallado.menuEsPreparado == 'A' 
-          ? _detallesReceta.map((detalle) => 
-              RecetaDetalle(
-                insumoCodigo: detalle.insumoCodigo,
-                cantidad: detalle.cantidad,
-              )
-            ).toList()
-          : null,
-      );
-
-      // Llamar al servicio de actualización
-      final actualizado = await MenuService.actualizarMenu(menuUpdateRequest);
-
-      if (mounted) {
-        if (actualizado) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Producto actualizado exitosamente'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          Navigator.pop(context, true); // Retorna true para indicar éxito
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Error al actualizar el producto'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 }
 
-// Clase auxiliar para manejar los detalles de receta editables
+
+// Clase auxiliar
 class RecetaDetalleEditable {
   final String insumoCodigo;
   final String insumoNombre;
