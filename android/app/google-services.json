@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "84091092735",
+    "project_id": "app-rincon-sabor-flutter",
+    "storage_bucket": "app-rincon-sabor-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:84091092735:android:3430072ce250cfff4e56ca",
+        "android_client_info": {
+          "package_name": "com.example.rincon_sabor_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARqZkjVe-oTCMpEmeTEisGTDAJHrpPhxg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

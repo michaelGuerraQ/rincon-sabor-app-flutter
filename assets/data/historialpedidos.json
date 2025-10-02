@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "numeroPedido": "001",
+    "fecha": "2023-08-15 18:30:00",
+    "mesa": "Mesa 5",
+    "items": [
+      {"nombre": "Lomo Saltado", "cantidad": 2, "precio": 22.00},
+      {"nombre": "Ceviche Mixto", "cantidad": 1, "precio": 18.00}
+    ],
+    "estado": "Completado",
+    "total": 62.00
+  },
+  {
+    "id": "2",
+    "numeroPedido": "002",
+    "fecha": "2023-08-15 19:15:00",
+    "mesa": "Mesa 3",
+    "items": [
+      {"nombre": "Pizza Familiar", "cantidad": 1, "precio": 35.00},
+      {"nombre": "Gaseosa 1L", "cantidad": 3, "precio": 5.00}
+    ],
+    "estado": "Cancelado",
+    "total": 50.00
+  }
+]
