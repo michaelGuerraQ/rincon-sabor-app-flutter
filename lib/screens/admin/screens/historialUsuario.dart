@@ -19,9 +19,12 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
   List<Usuario> usuarios = [];
   List<Usuario> usuariosFiltrados = [];
   final TextEditingController _searchController = TextEditingController();
-  Usuario? usuarioLogueado; 
+  Usuario? usuarioLogueado;
   Map<int, bool> estadosCargando = {};
   int? tarjetaEnModoEdicion;
+
+  // CORRECCIÓN: Referencia segura al ScaffoldMessenger
+  ScaffoldMessengerState? _scaffoldMessenger;
 
   bool cargando = true;
 
@@ -32,9 +35,35 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
     super.dispose();
+  }
+
+  // CORRECCIÓN: Método seguro para mostrar SnackBar
+  void _mostrarSnackBarSeguro(String mensaje, {required Color backgroundColor}) {
+    if (!mounted || _scaffoldMessenger == null) return;
+
+    try {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(
+          content: Text(mensaje, style: const TextStyle(color: Colors.white)),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      print('Error mostrando SnackBar: $e');
+    }
   }
 
   Future<void> cargarUsuarios() async {
@@ -55,11 +84,9 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
       setState(() {
         cargando = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar usuarios: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      _mostrarSnackBarSeguro(
+        'Error al cargar usuarios: $e',
+        backgroundColor: AppColors.error,
       );
     }
   }
@@ -68,70 +95,69 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
     final q = query.toLowerCase();
     setState(() {
       usuariosFiltrados = usuarios.where((u) =>
-        u.usuarioNombre.toLowerCase().contains(q) ||
-        u.usuarioEmail.toLowerCase().contains(q) ||
-        u.usuarioCodigo.toLowerCase().contains(q) ||
-        u.usuarioRol.toLowerCase().contains(q)
+      u.usuarioNombre.toLowerCase().contains(q) ||
+          u.usuarioEmail.toLowerCase().contains(q) ||
+          u.usuarioCodigo.toLowerCase().contains(q) ||
+          u.usuarioRol.toLowerCase().contains(q)
       ).toList();
     });
   }
 
+  // CORRECCIÓN CRÍTICA: Cambiar estado solo después de confirmación del backend
   Future<void> cambiarEstado(int index, bool activo) async {
     final nuevoEstado = activo ? 'A' : 'I';
-    final estadoAnterior = usuarios[index].usuarioEstado;
+    final usuario = usuarios[index];
 
-    // Marcar como cargando
+    // CORRECCIÓN: NO cambiar el estado de inmediato (sin UI optimista)
     setState(() {
       estadosCargando[index] = true;
-      usuarios[index].usuarioEstado = nuevoEstado; // UI optimista
     });
 
     try {
+      print('🔄 Cambiando estado de ${usuario.usuarioNombre} a: $nuevoEstado');
+
       final actualizado = await UsuarioService.actualizarEstadoUsuario(
-        usuarios[index].usuarioCodigo,
+        usuario.usuarioCodigo,
         nuevoEstado,
       );
 
-      // CORRECCIÓN: Verificar mounted antes de usar context
       if (!mounted) return;
 
-      if (!actualizado) {
-        // Si falló, restaurar estado anterior
+      if (actualizado) {
+        // CORRECCIÓN: Solo cambiar estado después de éxito confirmado del backend
         setState(() {
-          usuarios[index].usuarioEstado = estadoAnterior;
+          usuarios[index].usuarioEstado = nuevoEstado;
+          // CORRECCIÓN: También actualizar en la lista filtrada
+          final indexInFiltered = usuariosFiltrados.indexWhere(
+                  (u) => u.usuarioCodigo == usuario.usuarioCodigo
+          );
+          if (indexInFiltered != -1) {
+            usuariosFiltrados[indexInFiltered].usuarioEstado = nuevoEstado;
+          }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('No se pudo actualizar el estado'),
-            backgroundColor: AppColors.error,
-          ),
+        _mostrarSnackBarSeguro(
+          'Usuario ${activo ? 'activado' : 'desactivado'} correctamente',
+          backgroundColor: AppColors.success,
         );
+
+        print('✅ Estado actualizado exitosamente en UI');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Usuario ${activo ? 'activado' : 'desactivado'} correctamente'),
-            backgroundColor: AppColors.success,
-          ),
+        _mostrarSnackBarSeguro(
+          'No se pudo actualizar el estado del usuario',
+          backgroundColor: AppColors.error,
         );
+        print('❌ Error: Backend retornó false');
       }
     } catch (e) {
-      // CORRECCIÓN: Verificar mounted antes de usar context
       if (!mounted) return;
 
-      // Restaurar estado anterior
-      setState(() {
-        usuarios[index].usuarioEstado = estadoAnterior;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar estado: $e'),
-          backgroundColor: AppColors.error,
-        ),
+      _mostrarSnackBarSeguro(
+        'Error al actualizar estado: $e',
+        backgroundColor: AppColors.error,
       );
+      print('❌ Error en cambiarEstado: $e');
     } finally {
-      // CORRECCIÓN: Verificar mounted antes de setState
       if (mounted) {
         setState(() {
           estadosCargando[index] = false;
@@ -140,10 +166,16 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
     }
   }
 
+  // CORRECCIÓN: Método para recargar después de edición
+  Future<void> _onUsuarioActualizado() async {
+    print('🔄 Recargando usuarios después de actualización...');
+    await cargarUsuarios();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (cargando) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -158,9 +190,9 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: isDark 
-                        ? Colors.black.withValues(alpha:0.3)
-                        : Colors.grey.withValues(alpha:0.1),
+                      color: isDark
+                          ? Colors.black.withValues(alpha:0.3)
+                          : Colors.grey.withValues(alpha:0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -219,13 +251,13 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
                 onChanged: _filtrarUsuarios,
               ),
             ),
-            
+
             // Tarjeta del usuario logueado
             if (usuarioLogueado != null) ...[
               LoggedInUsuarioCard(usuario: usuarioLogueado!),
               const SizedBox(height: 24),
             ],
-            
+
             // Header de la lista de usuarios
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -270,33 +302,37 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
                 ],
               ),
             ),
-            
+
             // Lista de usuarios
             ...usuariosFiltrados.asMap().entries.map((entry) {
               final idx = entry.key;
               final u = entry.value;
+
+              // CORRECCIÓN: Encontrar el índice correcto en la lista principal
+              final mainIndex = usuarios.indexWhere((user) => user.usuarioCodigo == u.usuarioCodigo);
+
               return UsuarioCard(
                 usuario: u,
                 seleccionado: u.usuarioEstado == 'A',
-                cargando: estadosCargando[idx] == true,
+                cargando: estadosCargando[mainIndex] == true,
                 enModoEdicion: tarjetaEnModoEdicion == idx,
                 onModoEdicionChanged: (act) => setState(() {
                   tarjetaEnModoEdicion = act ? idx : null;
                 }),
-                onChanged: estadosCargando[idx] == true
+                onChanged: estadosCargando[mainIndex] == true
                     ? null
-                    : (nv) => cambiarEstado(idx, nv ?? false),
-                onUsuarioEliminado: cargarUsuarios,
-                onUsuarioActualizado: cargarUsuarios,
+                    : (nv) => cambiarEstado(mainIndex, nv ?? false), // CORRECCIÓN: Usar mainIndex
+                onUsuarioEliminado: _onUsuarioActualizado, // CORRECCIÓN: Usar método específico
+                onUsuarioActualizado: _onUsuarioActualizado, // CORRECCIÓN: Usar método específico
               );
             }).toList(),
-            
+
             // Espaciado adicional para el FAB
             const SizedBox(height: 80),
           ],
         ),
       ),
-      
+
       // Botón flotante para crear usuario
       floatingActionButton: Container(
         decoration: BoxDecoration(
@@ -322,7 +358,7 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
             );
 
             if (creado == true) {
-              cargarUsuarios(); // actualiza lista si se creó usuario
+              await _onUsuarioActualizado();
             }
           },
           icon: const Icon(
@@ -342,6 +378,7 @@ class _HistorialUsuarioState extends State<HistorialUsuario> {
   }
 }
 
+// LoggedInUsuarioCard permanece igual...
 class LoggedInUsuarioCard extends StatelessWidget {
   final Usuario usuario;
   const LoggedInUsuarioCard({Key? key, required this.usuario}) : super(key: key);
@@ -349,20 +386,20 @@ class LoggedInUsuarioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-            ? [
-                const Color(0xFF2D3748),
-                const Color(0xFF4A5568),
-              ]
-            : [
-                AppColors.primary.withValues(alpha:0.1),
-                AppColors.secondary.withValues(alpha:0.1),
-              ],
+              ? [
+            const Color(0xFF2D3748),
+            const Color(0xFF4A5568),
+          ]
+              : [
+            AppColors.primary.withValues(alpha:0.1),
+            AppColors.secondary.withValues(alpha:0.1),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -374,8 +411,8 @@ class LoggedInUsuarioCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: isDark
-              ? Colors.black.withValues(alpha:0.3)
-              : AppColors.primary.withValues(alpha:0.1),
+                ? Colors.black.withValues(alpha:0.3)
+                : AppColors.primary.withValues(alpha:0.1),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -411,9 +448,9 @@ class LoggedInUsuarioCard extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 20),
-            
+
             // Información del usuario
             Expanded(
               child: Column(
@@ -465,9 +502,9 @@ class LoggedInUsuarioCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Rol
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -490,9 +527,9 @@ class LoggedInUsuarioCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Email
                   Row(
                     children: [

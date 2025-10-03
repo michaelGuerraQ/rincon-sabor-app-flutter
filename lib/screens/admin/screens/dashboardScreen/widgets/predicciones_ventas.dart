@@ -4,126 +4,190 @@ import 'package:rincon_sabor_flutter/core/services/clima_service.dart';
 import 'package:rincon_sabor_flutter/core/theme/app_colors.dart';
 
 /// Widget profesional para mostrar predicciones de ventas
-class PrediccionVentasWidget extends StatelessWidget {
+class PrediccionVentasWidget extends StatefulWidget {
   const PrediccionVentasWidget({super.key});
 
   @override
+  State<PrediccionVentasWidget> createState() => _PrediccionVentasWidgetState();
+}
+
+class _PrediccionVentasWidgetState extends State<PrediccionVentasWidget> {
+  bool _disposed = false;
+  bool _isLoading = true;
+  Map<String, dynamic>? _cachedData;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    if (_disposed) return;
+
+    try {
+      final data = await _obtenerDatosCompletos();
+      if (_disposed || !mounted) return;
+
+      setState(() {
+        _cachedData = data;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      if (_disposed || !mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // CORRECCIÓN: Verificar disposed antes de construir
+    if (_disposed) return const SizedBox.shrink();
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _obtenerDatosCompletos(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return Card(
-            color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: AppColors.primary),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Analizando datos...',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-        
-        if (snap.hasError) {
-          return Card(
-            color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Error: ${snap.error}',
-                    style: TextStyle(
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
 
-        final data = snap.data!;
-        final predicciones = data['predicciones'] as Map<String, double>;
-        final temperatura = data['temperatura'] as double;
-        final diaManana = data['dia'] as String;
-
-        // Filtrar predicciones > 0 y ordenar por cantidad (mayor a menor)
-        final prediccionesFiltradas = predicciones.entries
-            .where((e) => e.value > 0)
-            .toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-
-        if (prediccionesFiltradas.isEmpty) {
-          return Card(
-            color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(Icons.insights, size: 48, color: AppColors.warning),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No hay suficientes datos para predicciones',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Card(
-          color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+    if (_isLoading) {
+      return Card(
+        color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        elevation: 4,
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Header con información del clima
-                _buildHeader(context, temperatura, diaManana, isDark),
-                
-                const SizedBox(height: 20),
-                
-                // Plato más vendido (destacado)
-                _buildPlatoDestacado(context, prediccionesFiltradas.first, isDark),
-                
-                const SizedBox(height: 16),
-                
-                // Resto de predicciones
-                _buildListaPredicciones(context, prediccionesFiltradas.skip(1).toList(), isDark),
+                CircularProgressIndicator(color: AppColors.primary),
+                SizedBox(height: 16),
+                Text('Analizando datos...'),
               ],
             ),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Card(
+        color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $_errorMessage',
+                style: TextStyle(
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_cachedData == null) {
+      return Card(
+        color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Icon(Icons.insights, size: 48, color: AppColors.warning),
+              const SizedBox(height: 16),
+              Text(
+                'No hay suficientes datos para predicciones',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // CORRECCIÓN: Verificar disposed antes de procesar datos
+    if (_disposed || !mounted) return const SizedBox.shrink();
+
+    final data = _cachedData!;
+    final predicciones = data['predicciones'] as Map<String, double>;
+    final temperatura = data['temperatura'] as double;
+    final diaManana = data['dia'] as String;
+
+    // Filtrar predicciones > 0 y ordenar por cantidad (mayor a menor)
+    final prediccionesFiltradas = predicciones.entries
+        .where((e) => e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (prediccionesFiltradas.isEmpty) {
+      return Card(
+        color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Icon(Icons.insights, size: 48, color: AppColors.warning),
+              const SizedBox(height: 16),
+              Text(
+                'No hay suficientes datos para predicciones',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header con información del clima
+            _buildHeader(context, temperatura, diaManana, isDark),
+
+            const SizedBox(height: 20),
+
+            // Plato más vendido (destacado)
+            _buildPlatoDestacado(context, prediccionesFiltradas.first, isDark),
+
+            const SizedBox(height: 16),
+
+            // Resto de predicciones
+            _buildListaPredicciones(context, prediccionesFiltradas.skip(1).toList(), isDark),
+          ],
+        ),
+      ),
     );
   }
 
@@ -131,12 +195,12 @@ class PrediccionVentasWidget extends StatelessWidget {
     final predicciones = await predecirVentasManana();
     final temperatura = await obtenerTemperaturaManana();
     final manana = DateTime.now().add(const Duration(days: 1));
-    
+
     const diasSemana = [
-      'Domingo', 'Lunes', 'Martes', 'Miércoles', 
+      'Domingo', 'Lunes', 'Martes', 'Miércoles',
       'Jueves', 'Viernes', 'Sábado'
     ];
-    
+
     return {
       'predicciones': predicciones,
       'temperatura': temperatura,
@@ -145,6 +209,9 @@ class PrediccionVentasWidget extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, double temperatura, String dia, bool isDark) {
+    // CORRECCIÓN: Verificar disposed antes de construir widgets complejos
+    if (_disposed) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -183,8 +250,8 @@ class PrediccionVentasWidget extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.thermostat, 
-                      size: 16, 
+                      Icons.thermostat,
+                      size: 16,
                       color: isDark ? AppColors.secondaryLight : AppColors.secondary,
                     ),
                     const SizedBox(width: 4),
@@ -206,6 +273,9 @@ class PrediccionVentasWidget extends StatelessWidget {
   }
 
   Widget _buildPlatoDestacado(BuildContext context, MapEntry<String, double> plato, bool isDark) {
+    // CORRECCIÓN: Verificar disposed
+    if (_disposed) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -272,8 +342,9 @@ class PrediccionVentasWidget extends StatelessWidget {
   }
 
   Widget _buildListaPredicciones(BuildContext context, List<MapEntry<String, double>> predicciones, bool isDark) {
-    if (predicciones.isEmpty) return const SizedBox.shrink();
-    
+    // CORRECCIÓN: Verificar disposed
+    if (_disposed || predicciones.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -291,6 +362,9 @@ class PrediccionVentasWidget extends StatelessWidget {
   }
 
   Widget _buildItemPrediccion(MapEntry<String, double> prediccion, bool isDark) {
+    // CORRECCIÓN: Verificar disposed
+    if (_disposed) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),

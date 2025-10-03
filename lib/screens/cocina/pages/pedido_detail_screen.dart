@@ -24,19 +24,56 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
   late Pedido currentPedido;
   Set<String> updatingDetalles = {};
 
+  // CORRECCIÓN: Añadir referencia segura al ScaffoldMessenger
+  ScaffoldMessengerState? _scaffoldMessenger;
+
   @override
   void initState() {
     super.initState();
     currentPedido = widget.pedido;
   }
+
+  // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
+  }
+
+  @override
+  void dispose() {
+    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
+    super.dispose();
+  }
+
+  // CORRECCIÓN: Método seguro para mostrar SnackBar
+  void _mostrarSnackBarSeguro(String mensaje, Color backgroundColor) {
+    if (!mounted || _scaffoldMessenger == null) return;
+
+    try {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(
+          content: Text(mensaje),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error mostrando SnackBar: $e');
+    }
+  }
+
   /// esta función actualiza el estado de un detalle del pedido
   /// y maneja la lógica de actualización del pedido y la mesa
   /// evitando reentradas y mostrando mensajes de éxito o error
   /// según corresponda
   Future<void> _updateDetalleStatus(
-    String detalleCodigo,
-    String newStatus,
-  ) async {
+      String detalleCodigo,
+      String newStatus,
+      ) async {
     // Evitamos reentradas
     ///esto quiere decir que si ya estamos actualizando este detalle,
     ///no volvemos a llamar a esta función hasta que termine la actualización
@@ -56,13 +93,13 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
       // 2) Si todo va bien, comprobamos localmente si ya todos los detalles están "Listo"
       final copia = List.of(currentPedido.detalles);
       final idx = copia.indexWhere(
-        (d) => d.detallePedidoCodigo == detalleCodigo,
+            (d) => d.detallePedidoCodigo == detalleCodigo,
       );
       if (idx != -1) copia[idx].estado = newStatus;
 
       final todosListos = copia.every((d) => d.estado.toLowerCase() == 'listo');
       final algunPendiente = copia.any(
-        (d) => d.estado.toLowerCase() == 'pendiente',
+            (d) => d.estado.toLowerCase() == 'pendiente',
       );
 
       // 3) Sincronizar pedido y mesa según estado
@@ -105,7 +142,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
       // 4) Actualizar estado local y snackbar
       setState(() {
         final detalleIndex = currentPedido.detalles.indexWhere(
-          (d) => d.detallePedidoCodigo == detalleCodigo,
+              (d) => d.detallePedidoCodigo == detalleCodigo,
         );
         if (detalleIndex != -1) {
           currentPedido.detalles[detalleIndex].estado = newStatus;
@@ -119,34 +156,20 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
         }
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Estado actualizado a: $newStatus'),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
+      // CORRECCIÓN: Usar método seguro para SnackBar
+      _mostrarSnackBarSeguro(
+          'Estado actualizado a: $newStatus',
+          AppColors.success
+      );
+
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }
+      // CORRECCIÓN: Usar método seguro para SnackBar de error
+      _mostrarSnackBarSeguro('Error: $e', AppColors.error);
     } finally {
       // Quitamos el loading de este detalle
-      setState(() => updatingDetalles.remove(detalleCodigo));
+      if (mounted) {
+        setState(() => updatingDetalles.remove(detalleCodigo));
+      }
     }
   }
 
@@ -372,7 +395,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
           Text(
             '${(progreso * 100).toInt()}% completado',
             style: TextStyle(
-              fontSize: 12, 
+              fontSize: 12,
               color: AppColors.textDisabled,
             ),
           ),
@@ -380,6 +403,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
       ),
     );
   }
+
   /// este widget construye la lista de artículos del pedido
   /// mostrando cada detalle con su estado y opciones de cambio de estado
   Widget _buildItemsList() {
@@ -413,12 +437,13 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
           ),
           const SizedBox(height: 16),
           ...currentPedido.detalles.map(
-            (detalle) => _buildDetalleItem(detalle),
+                (detalle) => _buildDetalleItem(detalle),
           ),
         ],
       ),
     );
   }
+
   /// este widget construye cada detalle del pedido
   /// mostrando información del producto, cantidad, estado y opciones de cambio de estado
   /// y maneja el estado de actualización para evitar múltiples solicitudes
@@ -479,7 +504,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
                       Text(
                         detalle.producto.descripcion,
                         style: TextStyle(
-                          fontSize: 12, 
+                          fontSize: 12,
                           color: AppColors.textDisabled,
                         ),
                       ),
@@ -539,7 +564,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '\$${detalle.subtotal.toStringAsFixed(2)}',
+                    'S/ ${detalle.subtotal.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -589,7 +614,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
               /// excluye los estados "cancelado" y "servido"
               /// para evitar que se puedan seleccionar
                   .where((estado) =>
-                      estado != EstadoDetalle.servido)
+              estado != EstadoDetalle.servido)
                   .map((estado) {
                 /// Verifica si el estado actual del detalle es igual al estado del enum
                 /// si es así, lo marca como seleccionado
@@ -704,8 +729,8 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
             child: Row(
               children: [
                 Icon(
-                  Icons.info_outline, 
-                  color: AppColors.textDisabled, 
+                  Icons.info_outline,
+                  color: AppColors.textDisabled,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
@@ -713,7 +738,7 @@ class _PedidoDetailScreenState extends State<PedidoDetailScreen> {
                   child: Text(
                     'Pedido realizado: ${_formatDateTime(currentPedido.pedidoFechaHora)}',
                     style: TextStyle(
-                      fontSize: 14, 
+                      fontSize: 14,
                       color: AppColors.textDisabled,
                     ),
                   ),

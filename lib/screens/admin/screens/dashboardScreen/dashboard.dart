@@ -29,6 +29,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int mes = DateTime.now().month;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  List<Mesa> _mesas = [];
+  List<Pedido> _pedidosHoy = [];
+  bool _datosActualizados = false;
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    _cargarDatosIniciales();
   }
 
   @override
@@ -56,63 +60,79 @@ class _DashboardScreenState extends State<DashboardScreen>
     ];
     return nombres[mes];
   }
+  Future<void> _cargarDatosIniciales() async {
+    if (!mounted) return;
 
-  // Map<String, dynamic> _getDashboardStats() {
-  //   return {
-  //     'ventasHoy': 2450.50,
-  //     'pedidosHoy': 45,
-  //     'mesasOcupadas': 12,
-  //     'totalMesas': 20,
-  //     'gananciaMes': 45780.30,
-  //     'clientesHoy': 78,
-  //   };
-  // }
+    try {
+      print('🔄 Cargando datos del dashboard...');
 
-  // List<Map<String, dynamic>> _getTableData() {
-  //   return [
-  //     {'numero': 1, 'estado': 'disponible'},
-  //     {'numero': 2, 'estado': 'ocupada'},
-  //     {'numero': 3, 'estado': 'ocupada'},
-  //     {'numero': 4, 'estado': 'esperando'},
-  //     {'numero': 5, 'estado': 'disponible'},
-  //     {'numero': 6, 'estado': 'ocupada'},
-  //     {'numero': 7, 'estado': 'mantenimiento'},
-  //     {'numero': 8, 'estado': 'disponible'},
-  //   ];
-  // }
+      final resultados = await Future.wait([
+        MesaService.obtenerMesas(),
+        PedidosService.fetchPedidosActivos(),
+      ]);
 
-  // List<Map<String, dynamic>> _getRecentOrders() {
-  //   return [
-  //     {'id': '#001', 'mesa': 2, 'total': 85.50, 'estado': 'preparando'},
-  //     {'id': '#002', 'mesa': 4, 'total': 42.30, 'estado': 'listo'},
-  //     {'id': '#003', 'mesa': 6, 'total': 156.80, 'estado': 'pendiente'},
-  //     {'id': '#004', 'mesa': 1, 'total': 67.20, 'estado': 'servido'},
-  //   ];
-  // }
+      if (!mounted) return;
 
-  // Color _getStatusColor(String estado) {
-  //   switch (estado) {
-  //     case 'disponible':
-  //       return AppColors.mesaDisponible;
-  //     case 'ocupada':
-  //       return AppColors.mesaOcupada;
-  //     case 'esperando':
-  //       return AppColors.mesaEsperando;
-  //     case 'mantenimiento':
-  //       return AppColors.mesaMantenimiento;
-  //     case 'pendiente':
-  //       return AppColors.pedidoPendiente;
-  //     case 'preparando':
-  //       return AppColors.pedidoPreparando;
-  //     case 'listo':
-  //       return AppColors.pedidoListo;
-  //     case 'servido':
-  //       return AppColors.pedidoServido;
-  //     default:
-  //       return AppColors.primary;
-  //   }
-  // }
+      setState(() {
+        _mesas = resultados[0] as List<Mesa>;
+        _pedidosHoy = resultados[1] as List<Pedido>;
+        _datosActualizados = true;
+      });
 
+      print('✅ Datos cargados: ${_mesas.length} mesas, ${_pedidosHoy.length} pedidos');
+    } catch (e) {
+      if (mounted) {
+        print('❌ Error cargando datos del dashboard: $e');
+      }
+    }
+  }
+
+  int _calcularMesasDisponibles() {
+    if (!_datosActualizados) return 0;
+
+    final mesasDisponibles = _mesas.where((mesa) =>
+    mesa.estado == EstadoMesa.disponible
+    ).length;
+
+    print('📊 Mesas disponibles calculadas: $mesasDisponibles de ${_mesas.length}');
+    return mesasDisponibles;
+  }
+
+  int _contarPedidosHoy() {
+    if (!_datosActualizados) return 0;
+
+    final ahora = DateTime.now();
+    final inicioDelDia = DateTime(ahora.year, ahora.month, ahora.day);
+    final finDelDia = inicioDelDia.add(const Duration(days: 1));
+
+    final pedidosDeHoy = _pedidosHoy.where((pedido) {
+      final fechaPedido = pedido.pedidoFechaHora;
+      return fechaPedido.isAfter(inicioDelDia) &&
+          fechaPedido.isBefore(finDelDia);
+    }).length;
+
+    print('📊 Pedidos de hoy calculados: $pedidosDeHoy');
+    return pedidosDeHoy;
+  }
+
+  double _calcularVentasHoy() {
+    if (!_datosActualizados) return 0.0;
+
+    final ahora = DateTime.now();
+    final inicioDelDia = DateTime(ahora.year, ahora.month, ahora.day);
+    final finDelDia = inicioDelDia.add(const Duration(days: 1));
+
+    final ventasHoy = _pedidosHoy.where((pedido) {
+      final fechaPedido = pedido.pedidoFechaHora;
+      return fechaPedido.isAfter(inicioDelDia) &&
+          fechaPedido.isBefore(finDelDia) &&
+          (pedido.pedidoEstado.toLowerCase() == 'servido' ||
+              pedido.pedidoEstado.toLowerCase() == 'listo');
+    }).fold(0.0, (sum, pedido) => sum + pedido.pedidoTotal);
+
+    print('📊 Ventas de hoy calculadas: S/ $ventasHoy');
+    return ventasHoy;
+  }
   Color _getColorFromEstado(EstadoMesa estado) {
     switch (estado) {
       case EstadoMesa.disponible:
@@ -142,576 +162,632 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    // final stats = _getDashboardStats();
-    // final tables = _getTableData();
-    // final orders = _getRecentOrders();
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Informe del Restaurante',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  // Botón de cerrar sesión en el header
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha:0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.error.withValues(alpha:0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: IconButton(
-                      onPressed: () => _showLogoutDialog(context),
-                      icon: Icon(
-                        Icons.logout,
-                        color: AppColors.error,
-                        size: 20,
-                      ),
-                      tooltip: 'Cerrar Sesión',
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildNavigationButton(
-                      title: 'Cocina',
-                      subtitle: 'Gestionar pedidos',
-                      icon: Icons.restaurant_menu,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.warning,
-                          AppColors.warning.withValues(alpha:0.7),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      onTap:
-                          _navigateToCocina, 
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildNavigationButton(
-                      title: 'Mesero',
-                      subtitle: 'Atender mesas',
-                      icon: Icons.person_outline,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.info,
-                          AppColors.info.withValues(alpha:0.7),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      onTap:
-                          _navigateToMesero,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const PrediccionVentasWidget(),
-              const SizedBox(height: 20),
-
-
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.5,
-                children: [
-                  FutureBuilder<VentasHoy>(
-                    future: GraficodataService.fetchVentasHoy(),
-                    builder: (context, snapshot) {
-                      String ventasValue;
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        ventasValue = '...';
-                      } else if (snapshot.hasError) {
-                        ventasValue = 'err';
-                      } else if (snapshot.hasData) {
-                        ventasValue = 'S/. ${snapshot.data!.totalVentas.toStringAsFixed(2)}';
-                      } else {
-                        ventasValue = 'S/. 0.00';
-                      }
-                      return _buildStatsCard(
-                        'Ventas Hoy',
-                        ventasValue,
-                        Icons.attach_money,
-                        AppColors.success,
-                      );
-                    },
-                  ),
-                  FutureBuilder<List<PedidoHoy>>(
-                    future: GraficodataService.fetchPedidosHoy(),
-                    builder: (context, snapshot) {
-                      String pedidosValue;
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        pedidosValue = '...';
-                      } else if (snapshot.hasError) {
-                        pedidosValue = 'err';
-                      } else if (snapshot.hasData) {
-                        pedidosValue = '${snapshot.data!.length}';
-                      } else {
-                        pedidosValue = '0';
-                      }
-                      return _buildStatsCard(
-                        'Pedidos Hoy',
-                        pedidosValue,
-                        Icons.receipt_long,
-                        AppColors.info,
-                      );
-                    },
-                  ),
-                  FutureBuilder<MesasDisponibles>(
-                    future: GraficodataService.fetchMesasDisponibles(),
-                    builder: (context, snapshot) {
-                      String mesasValue;
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        mesasValue = '...';
-                      } else if (snapshot.hasError) {
-                        mesasValue = 'err';
-                      } else if (snapshot.hasData) {
-                        mesasValue = snapshot.data!.summary;
-                      } else {
-                        mesasValue = '0';
-                      }
-                      return _buildStatsCard(
-                        'Mesas Disponibles',
-                        mesasValue,
-                        Icons.table_restaurant,
-                        AppColors.info,
-                      );
-                    },
-                  ),
-                  FutureBuilder<GananciasMesActual>(
-                    future: GraficodataService.fetchGananciasMesActual(),
-                    builder: (context, snapshot) {
-                      String gananciaValue;
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        gananciaValue = '...';
-                      } else if (snapshot.hasError) {
-                        gananciaValue = 'err';
-                      } else if (snapshot.hasData) {
-                        gananciaValue = 'S/. ${snapshot.data!.totalGanancias.toStringAsFixed(2)}';
-                      } else {
-                        gananciaValue = 'S/. 0.00';
-                      }
-                      return _buildStatsCard(
-                        'Ganancia Mes',
-                        gananciaValue,
-                        Icons.trending_up,
-                        AppColors.success,
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mes: $mes / Año: $anio',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final picked = await showMonthPicker(
-                        context: context,
-                        initialDate: DateTime(anio, mes),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          anio = picked.year;
-                          mes = picked.month;
-                        });
-                      }
-                    },
-                    child: const Text('Elegir Mes/Año'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    height: 300,
-                    width: double.infinity,
-                    child: FutureBuilder<List<WeeklyGainByMonth>>(
-                      future: GraficodataService.fetchGananciasSemanalesPorMes(
-                        anio: anio,
-                        mes: mes,
-                      ),
-                      builder: (context, snap) {
-                        if (snap.connectionState != ConnectionState.done) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snap.hasError || snap.data == null) {
-                          return const Center(
-                            child: Text('Error al cargar datos'),
-                          );
-                        }
-                        final semanal = snap.data!;
-                        final salesData =
-                            semanal
-                                .map(
-                                  (w) => SalesData(
-                                    'Semana ${w.semanaDelMes}',
-                                    w.ganancias,
-                                  ),
-                                )
-                                .toList();
-                        return SalesChart(data: salesData);
-                      },
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Ganancias de los mesas del $anio',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 300,
-                        width: double.infinity,
-                        child: FutureBuilder<List<MonthlyGain>>(
-                          future: GraficodataService.fetchGananciasMensuales(
-                            anio: anio,
-                          ),
-                          builder: (context, snap) {
-                            if (snap.connectionState != ConnectionState.done) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            if (snap.hasError || snap.data == null) {
-                              return const Center(
-                                child: Text('Error al cargar datos'),
-                              );
-                            }
-
-                            final mensual = snap.data!;
-                            final data =
-                                mensual.map((m) {
-                                  final nombreMes = _getMonthName(m.mes);
-                                  return EarningsData(nombreMes, m.ganancias);
-                                }).toList();
-
-                            return EarningsChart(data: data);
-                          },
+        child: RefreshIndicator(
+          onRefresh: _cargarDatosIniciales,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Informe del Restaurante',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              // Sección de mesas y pedidos recientes (DATOS FICTICIOS)
-              FutureBuilder<List<Mesa>>(
-                future: MesaService.obtenerMesas(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No se pudieron cargar las mesas'));
-                  }
-                  final tables = snapshot.data!;
-                  return Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Estado de Mesas',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 16),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 1,
-                            ),
-                            itemCount: tables.length,
-                            itemBuilder: (context, index) {
-                              final table = tables[index];
-                              final color = _getColorFromEstado(table.estado);
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: color, width: 2),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    table.numero,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: color,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 16,
-                            children: [
-                              _buildLegendItem('Disponible', _getColorFromEstado(EstadoMesa.disponible)),
-                              _buildLegendItem('Ocupada', _getColorFromEstado(EstadoMesa.ocupada)),
-                              _buildLegendItem('Esperando', _getColorFromEstado(EstadoMesa.esperando)),
-                              _buildLegendItem('Mantenimiento', _getColorFromEstado(EstadoMesa.mantenimiento)),
-                            ],
-                          ),
-                        ],
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: IconButton(
+                        onPressed: () => _showLogoutDialog(context),
+                        icon: Icon(
+                          Icons.logout,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                        tooltip: 'Cerrar Sesión',
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              // Sección de pedidos recientes (TU CÓDIGO ORIGINAL)
-              FutureBuilder<List<Pedido>>(
-                future: PedidosService.fetchPedidosActivos(),
-                builder: (context, AsyncSnapshot<List<Pedido>> snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No hay pedidos recientes'));
-                  }
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-                  final orders = snapshot.data!
-                    ..sort((a, b) => b.pedidoFechaHora.compareTo(a.pedidoFechaHora)); // Ordenar de más reciente a más antiguo
-                  final limitedOrders = orders.take(5).toList(); // Tomar solo los primeros 5
+                // Navegación rápida
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildNavigationButton(
+                        title: 'Cocina',
+                        subtitle: 'Gestionar pedidos',
+                        icon: Icons.restaurant_menu,
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.warning,
+                            AppColors.warning.withValues(alpha: 0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        onTap: _navigateToCocina,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildNavigationButton(
+                        title: 'Mesero',
+                        subtitle: 'Atender mesas',
+                        icon: Icons.person_outline,
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.info,
+                            AppColors.info.withValues(alpha: 0.7),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        onTap: _navigateToMesero,
+                      ),
+                    ),
+                  ],
+                ),
 
-                  return Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.receipt_long,
-                                  color: Theme.of(context).primaryColor,
-                                  size: 24,
-                                ),
+                const SizedBox(height: 20),
+                const PrediccionVentasWidget(),
+                const SizedBox(height: 20),
+
+                // Estadísticas principales
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.5,
+                  children: [
+                    FutureBuilder<VentasHoy>(
+                      future: GraficodataService.fetchVentasHoy(),
+                      builder: (context, snapshot) {
+                        String ventasValue;
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          ventasValue = '...';
+                        } else if (snapshot.hasError) {
+                          ventasValue = 'err';
+                        } else if (snapshot.hasData) {
+                          ventasValue =
+                          'S/. ${_calcularVentasHoy().toStringAsFixed(2)}';
+                        } else {
+                          ventasValue = 'S/. 0.00';
+                        }
+                        return _buildStatsCard(
+                          'Ventas Hoy',
+                          ventasValue,
+                          Icons.attach_money,
+                          AppColors.success,
+                        );
+                      },
+                    ),
+                    FutureBuilder<List<PedidoHoy>>(
+                      future: GraficodataService.fetchPedidosHoy(),
+                      builder: (context, snapshot) {
+                        String pedidosValue;
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          pedidosValue = '...';
+                        } else if (snapshot.hasError) {
+                          pedidosValue = 'err';
+                        } else if (snapshot.hasData) {
+                          pedidosValue = '${snapshot.data!.length}';
+                        } else {
+                          pedidosValue = '0';
+                        }
+                        return _buildStatsCard(
+                          'Pedidos Hoy',
+                          '${_contarPedidosHoy()}',
+                          Icons.receipt_long,
+                          AppColors.info,
+                        );
+                      },
+                    ),
+                    FutureBuilder<MesasDisponibles>(
+                      future: GraficodataService.fetchMesasDisponibles(),
+                      builder: (context, snapshot) {
+                        String mesasValue;
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          mesasValue = '...';
+                        } else if (snapshot.hasError) {
+                          mesasValue = 'err';
+                        } else if (snapshot.hasData) {
+                          mesasValue = snapshot.data!.summary;
+                        } else {
+                          mesasValue = '0';
+                        }
+                        return _buildStatsCard(
+                          'Mesas Disponibles',
+                          '${_calcularMesasDisponibles()}',
+                          Icons.table_restaurant,
+                          AppColors.info,
+                        );
+                      },
+                    ),
+                    FutureBuilder<GananciasMesActual>(
+                      future: GraficodataService.fetchGananciasMesActual(),
+                      builder: (context, snapshot) {
+                        String gananciaValue;
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          gananciaValue = '...';
+                        } else if (snapshot.hasError) {
+                          gananciaValue = 'err';
+                        } else if (snapshot.hasData) {
+                          gananciaValue =
+                          'S/. ${snapshot.data!.totalGanancias.toStringAsFixed(2)}';
+                        } else {
+                          gananciaValue = 'S/. 0.00';
+                        }
+                        return _buildStatsCard(
+                          'Ganancia Mes',
+                          gananciaValue,
+                          Icons.trending_up,
+                          AppColors.success,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Filtro Mes / Año
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Mes: $mes / Año: $anio',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final picked = await showMonthPicker(
+                          context: context,
+                          initialDate: DateTime(anio, mes),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            anio = picked.year;
+                            mes = picked.month;
+                          });
+                        }
+                      },
+                      child: const Text('Elegir Mes/Año'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Gráfico semanal
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      height: 300,
+                      width: double.infinity,
+                      child: FutureBuilder<List<WeeklyGainByMonth>>(
+                        future: GraficodataService.fetchGananciasSemanalesPorMes(
+                          anio: anio,
+                          mes: mes,
+                        ),
+                        builder: (context, snap) {
+                          if (snap.connectionState != ConnectionState.done) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snap.hasError || snap.data == null) {
+                            return const Center(
+                              child: Text('Error al cargar datos'),
+                            );
+                          }
+                          final semanal = snap.data!;
+                          final salesData = semanal
+                              .map(
+                                (w) => SalesData(
+                              'Semana ${w.semanaDelMes}',
+                              w.ganancias,
+                            ),
+                          )
+                              .toList();
+                          return SalesChart(data: salesData);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Gráfico mensual
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ganancias de los meses del $anio',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 300,
+                          width: double.infinity,
+                          child: FutureBuilder<List<MonthlyGain>>(
+                            future: GraficodataService.fetchGananciasMensuales(
+                              anio: anio,
+                            ),
+                            builder: (context, snap) {
+                              if (snap.connectionState !=
+                                  ConnectionState.done) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              if (snap.hasError || snap.data == null) {
+                                return const Center(
+                                  child: Text('Error al cargar datos'),
+                                );
+                              }
+
+                              final mensual = snap.data!;
+                              final data = mensual.map((m) {
+                                final nombreMes = _getMonthName(m.mes);
+                                return EarningsData(nombreMes, m.ganancias);
+                              }).toList();
+
+                              return EarningsChart(data: data);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Estado de mesas
+                FutureBuilder<List<Mesa>>(
+                  future: MesaService.obtenerMesas(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data!.isEmpty) {
+                      return const Center(
+                          child: Text('No se pudieron cargar las mesas'));
+                    }
+                    final tables = snapshot.data!;
+                    return Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Estado de Mesas',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 16),
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                                childAspectRatio: 1,
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Pedidos Recientes',
+                              itemCount: tables.length,
+                              itemBuilder: (context, index) {
+                                final table = tables[index];
+                                final color =
+                                _getColorFromEstado(table.estado);
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: color, width: 2),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      table.numero,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).textTheme.titleLarge?.color,
+                                        color: color,
                                       ),
                                     ),
-                                    Text(
-                                      'Últimos ${limitedOrders.length} pedidos',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Theme.of(context).textTheme.bodySmall?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Navegando a pedidos completos...'),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Ver todos'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: limitedOrders.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final order = limitedOrders[index];
-                              final statusColor = Color(order.estadoEnum.colorValue);
-                              final formattedDateTime = DateFormat('dd/MM/yyyy hh:mm a').format(order.pedidoFechaHora);
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 16,
+                              children: [
+                                _buildLegendItem('Disponible',
+                                    _getColorFromEstado(EstadoMesa.disponible)),
+                                _buildLegendItem('Ocupada',
+                                    _getColorFromEstado(EstadoMesa.ocupada)),
+                                _buildLegendItem('Esperando',
+                                    _getColorFromEstado(EstadoMesa.esperando)),
+                                _buildLegendItem(
+                                    'Mantenimiento',
+                                    _getColorFromEstado(
+                                        EstadoMesa.mantenimiento)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
 
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(
-                                                order.pedidoCodigo,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Theme.of(context).textTheme.titleMedium?.color,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: statusColor.withValues(alpha: 0.1),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  order.estadoEnum.label,
+                const SizedBox(height: 20),
+
+                // Pedidos recientes
+                FutureBuilder<List<Pedido>>(
+                  future: PedidosService.fetchPedidosActivos(),
+                  builder: (context, AsyncSnapshot<List<Pedido>> snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data!.isEmpty) {
+                      return const Center(
+                          child: Text('No hay pedidos recientes'));
+                    }
+
+                    final orders = snapshot.data!
+                      ..sort((a, b) =>
+                          b.pedidoFechaHora.compareTo(a.pedidoFechaHora));
+                    final limitedOrders = orders.take(5).toList();
+
+                    return Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .primaryColor
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.receipt_long,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Pedidos Recientes',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.color,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Últimos ${limitedOrders.length} pedidos',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                            'Navegando a pedidos completos...'),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Ver todos'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics:
+                              const NeverScrollableScrollPhysics(),
+                              itemCount: limitedOrders.length,
+                              separatorBuilder: (context, index) =>
+                              const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final order = limitedOrders[index];
+                                final statusColor =
+                                Color(order.estadoEnum.colorValue);
+                                final formattedDateTime =
+                                DateFormat('dd/MM/yyyy hh:mm a')
+                                    .format(order.pedidoFechaHora);
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  order.pedidoCodigo,
                                                   style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: statusColor,
+                                                    fontSize: 14,
+                                                    fontWeight:
+                                                    FontWeight.bold,
+                                                    color: Theme.of(context)
+                                                        .textTheme
+                                                        .titleMedium
+                                                        ?.color,
                                                   ),
                                                 ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                  const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: statusColor
+                                                        .withValues(
+                                                        alpha: 0.1),
+                                                    borderRadius:
+                                                    BorderRadius
+                                                        .circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    order.estadoEnum.label,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                      FontWeight.w600,
+                                                      color: statusColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Mesa ${order.mesaNumero}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
+                                            ),
+                                            Text(
+                                              '${order.detalles.length} items • $formattedDateTime',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.end,
+                                        children: [
                                           Text(
-                                            'Mesa ${order.mesaNumero}',
+                                            'S/. ${order.pedidoTotal.toStringAsFixed(2)}',
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              color: Theme.of(context).textTheme.bodySmall?.color,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context)
+                                                  .primaryColor,
                                             ),
                                           ),
-                                          Text(
-                                            '${order.detalles.length} items • $formattedDateTime',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Theme.of(context).textTheme.bodySmall?.color,
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: statusColor,
+                                              shape: BoxShape.circle,
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          'S/. ${order.pedidoTotal.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).primaryColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: statusColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

@@ -15,12 +15,16 @@ class EditarUsuarioScreen extends StatefulWidget {
   State<EditarUsuarioScreen> createState() => _EditarUsuarioScreenState();
 }
 
-class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerProviderStateMixin {
+class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormBuilderState>();
-  bool cargando = false;
+  bool _cargando = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // CORRECCIÓN: Añadir referencia segura al ScaffoldMessenger
+  ScaffoldMessengerState? _scaffoldMessenger;
 
   @override
   void initState() {
@@ -36,75 +40,118 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
-    
+
     _animationController.forward();
+  }
+
+  // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
   @override
   void dispose() {
+    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
     _animationController.dispose();
     super.dispose();
   }
 
-  void actualizar() async {
+  // CORRECCIÓN: Método seguro para mostrar SnackBar
+  void _mostrarSnackBarSeguro(String mensaje, {required Color backgroundColor}) {
+    if (!mounted || _scaffoldMessenger == null) return;
+
+    try {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                backgroundColor == AppColors.success ? Icons.check_circle : Icons.error,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Text(mensaje, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      print('Error mostrando SnackBar: $e');
+    }
+  }
+
+  // CORRECCIÓN CRÍTICA: Método actualizar sin UI optimista
+  Future<void> _actualizar() async {
     if (!_formKey.currentState!.saveAndValidate()) return;
 
     final datos = _formKey.currentState!.value;
 
-    final usuarioActualizado = Usuario(
-      usuarioCodigo: widget.usuario.usuarioCodigo,
-      usuarioNombre: datos['nombre'],
-      usuarioEmail: datos['email'],
-      usuarioDireccion: datos['direccion'] ?? '',
-      usuarioTelefono: datos['telefono'] ?? '',
-      usuarioFechaRegistrosinFormatear: widget.usuario.usuarioFechaRegistrosinFormatear,
-      usuarioEstado: widget.usuario.usuarioEstado,
-      usuarioRol: datos['rol'],
-    );
+    // CORRECCIÓN: NO cambiar el estado de inmediato
+    setState(() {
+      _cargando = true;
+    });
 
-    setState(() => cargando = true);
-    final actualizado = await UsuarioService.actualizarUsuario(usuarioActualizado);
-    setState(() => cargando = false);
+    try {
+      print('🔄 Actualizando usuario ${widget.usuario.usuarioNombre}...');
 
-    if (actualizado) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Usuario actualizado correctamente'),
-            ],
-          ),
+      final usuarioActualizado = Usuario(
+        usuarioCodigo: widget.usuario.usuarioCodigo,
+        usuarioNombre: datos['nombre'],
+        usuarioEmail: datos['email'],
+        usuarioDireccion: datos['direccion'] ?? '',
+        usuarioTelefono: datos['telefono'] ?? '',
+        usuarioFechaRegistrosinFormatear: widget.usuario.usuarioFechaRegistrosinFormatear,
+        usuarioEstado: widget.usuario.usuarioEstado,
+        usuarioRol: datos['rol'],
+      );
+
+      final actualizado = await UsuarioService.actualizarUsuario(usuarioActualizado);
+
+      if (!mounted) return;
+
+      if (actualizado) {
+        _mostrarSnackBarSeguro(
+          'Usuario actualizado correctamente',
           backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.error, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Error al actualizar usuario'),
-            ],
-          ),
+        );
+
+        print('✅ Usuario actualizado exitosamente');
+
+        // CORRECCIÓN: Retornar true para confirmar la actualización
+        Navigator.pop(context, true);
+      } else {
+        _mostrarSnackBarSeguro(
+          'No se pudo actualizar el usuario',
           backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+        );
+        print('❌ Error: Backend retornó false');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      _mostrarSnackBarSeguro(
+        'Error al actualizar usuario: $e',
+        backgroundColor: AppColors.error,
       );
+      print('❌ Error en actualizar: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _cargando = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final usuario = widget.usuario;
-    
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1A202C) : AppColors.background,
       body: SafeArea(
@@ -114,8 +161,9 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
             position: _slideAnimation,
             child: CustomScrollView(
               slivers: [
+                // AppBar personalizado
                 SliverAppBar(
-                  expandedHeight: 160,
+                  expandedHeight: 140,
                   floating: false,
                   pinned: true,
                   backgroundColor: Colors.transparent,
@@ -148,6 +196,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                               const SizedBox(height: 40),
                               Row(
                                 children: [
+                                  // Icono con gradiente
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -183,7 +232,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                           ),
                                         ),
                                         Text(
-                                          'Modificando: ${usuario.usuarioNombre}',
+                                          'Modificando ${widget.usuario.usuarioNombre}',
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: isDark ? Colors.white70 : AppColors.textSecondary,
@@ -197,7 +246,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            usuario.usuarioRol.toUpperCase(),
+                                            widget.usuario.usuarioRol.toUpperCase(),
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
@@ -217,6 +266,8 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                     ),
                   ),
                 ),
+
+                // Formulario
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -226,9 +277,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark 
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.black.withOpacity(0.1),
+                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -239,11 +288,11 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                         child: FormBuilder(
                           key: _formKey,
                           initialValue: {
-                            'nombre': usuario.usuarioNombre,
-                            'email': usuario.usuarioEmail,
-                            'direccion': usuario.usuarioDireccion,
-                            'telefono': usuario.usuarioTelefono,
-                            'rol': usuario.usuarioRol,
+                            'nombre': widget.usuario.usuarioNombre,
+                            'email': widget.usuario.usuarioEmail,
+                            'direccion': widget.usuario.usuarioDireccion,
+                            'telefono': widget.usuario.usuarioTelefono,
+                            'rol': widget.usuario.usuarioRol,
                           },
                           child: Column(
                             children: [
@@ -255,6 +304,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'email',
                                 label: 'Correo electrónico',
@@ -267,6 +317,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'direccion',
                                 label: 'Dirección',
@@ -274,6 +325,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'telefono',
                                 label: 'Teléfono',
@@ -282,8 +334,10 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               const DropdownRolUsuario(),
                               const SizedBox(height: 32),
+
                               _buildUpdateButton(isDark),
                             ],
                           ),
@@ -325,7 +379,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
           color: isDark ? Colors.white70 : AppColors.textSecondary,
         ),
         filled: true,
-        fillColor: isDark 
+        fillColor: isDark
             ? const Color(0xFF1A202C).withOpacity(0.5)
             : AppColors.background.withOpacity(0.5),
         border: OutlineInputBorder(
@@ -335,24 +389,18 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: isDark 
+            color: isDark
                 ? Colors.white.withOpacity(0.2)
                 : AppColors.textSecondary.withOpacity(0.2),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: AppColors.info,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.info, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.error, width: 2),
         ),
       ),
     );
@@ -366,49 +414,51 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen> with TickerPr
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: cargando 
+          colors: _cargando
               ? [Colors.grey, Colors.grey.shade400]
               : [AppColors.info, AppColors.primary],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: cargando ? [] : [
+        boxShadow: !_cargando
+            ? [
           BoxShadow(
             color: AppColors.info.withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
-        ],
+        ]
+            : null,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: cargando ? null : actualizar,
+          onTap: _cargando ? null : _actualizar,
           borderRadius: BorderRadius.circular(16),
           child: Center(
-            child: cargando
+            child: _cargando
                 ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
                 : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.update, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
-                        'Actualizar Usuario',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.update, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Actualizar Usuario',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

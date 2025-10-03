@@ -132,6 +132,7 @@ class AgregarMenuModel extends ChangeNotifier {
 
     final stock = double.tryParse(stockCtrl.text.trim()) ?? 0;
     final totalCost = double.tryParse(compraCtrl.text.trim()) ?? 0;
+
     // evita división por cero
     final double unitCost = stock > 0 ? totalCost / stock : 0;
 
@@ -142,28 +143,27 @@ class AgregarMenuModel extends ChangeNotifier {
       categoriaCodigo: selectedCategoria ?? '',
       esPreparado: esPreparado ? 'A' : 'I',
       receta: esPreparado ? detalles : null,
-      insumo:
-          !esPreparado
-              ? InsumoRequest(
-                unidadMedida: unitCtrl.text.trim(),
-                stockActual: stock,
-                compraUnidad: unitCost,
-              )
-              : null,
+      insumo: !esPreparado ? InsumoRequest(
+        unidadMedida: unitCtrl.text.trim(),
+        stockActual: stock,
+        compraUnidad: unitCost,
+      ) : null,
     );
 
-    final file =
-        (!kIsWeb && pickedImage != null) ? File(pickedImage!.path) : null;
+    final file = !kIsWeb && pickedImage != null ? File(pickedImage!.path) : null;
 
     final ok = await MenuService.agregarMenu(
       dto,
-      imageFile: file, // <- ya no como posicional
+      imageFile: file,
       imageBytes: kIsWeb ? imageData : null,
       imageName: kIsWeb ? pickedImage?.name : null,
     );
 
     isSaving = false;
     notifyListeners();
+
+    print('🍽️ Resultado agregar menú: $ok'); // CORRECCIÓN: Log para debug
+
     return ok;
   }
 }

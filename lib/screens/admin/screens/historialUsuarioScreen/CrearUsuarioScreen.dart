@@ -13,12 +13,16 @@ class CrearUsuarioScreen extends StatefulWidget {
   State<CrearUsuarioScreen> createState() => _CrearUsuarioScreenState();
 }
 
-class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProviderStateMixin {
+class _CrearUsuarioScreenState extends State<CrearUsuarioScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormBuilderState>();
-  bool cargando = false;
+  bool _cargando = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // CORRECCIÓN: Añadir referencia segura al ScaffoldMessenger
+  ScaffoldMessengerState? _scaffoldMessenger;
 
   @override
   void initState() {
@@ -34,74 +38,120 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
-    
+
     _animationController.forward();
+  }
+
+  // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
   @override
   void dispose() {
+    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
     _animationController.dispose();
     super.dispose();
   }
 
-  void guardar() async {
+  // CORRECCIÓN: Método seguro para mostrar SnackBar
+  void _mostrarSnackBarSeguro(String mensaje, {required Color backgroundColor, IconData? icono}) {
+    if (!mounted || _scaffoldMessenger == null) return;
+
+    try {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              if (icono != null) ...[
+                Icon(icono, color: Colors.white),
+                const SizedBox(width: 8),
+              ],
+              Text(mensaje, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      print('Error mostrando SnackBar: $e');
+    }
+  }
+
+  // CORRECCIÓN CRÍTICA: Método guardar seguro sin UI optimista
+  Future<void> _guardar() async {
     if (!_formKey.currentState!.saveAndValidate()) return;
 
     final datos = _formKey.currentState!.value;
 
-    final nuevoUsuario = Usuario(
-      usuarioCodigo: '',
-      usuarioNombre: datos['nombre'],
-      usuarioEmail: datos['email'],
-      usuarioDireccion: datos['direccion'] ?? '',
-      usuarioTelefono: datos['telefono'] ?? '',
-      usuarioFechaRegistrosinFormatear: '',
-      usuarioEstado: 'A',
-      usuarioRol: datos['rol'],
-    );
+    // CORRECCIÓN: NO crear el usuario inmediatamente en UI
+    setState(() {
+      _cargando = true;
+    });
 
-    setState(() => cargando = true);
-    final creado = await UsuarioService.crearUsuario(nuevoUsuario);
-    setState(() => cargando = false);
+    try {
+      print('🔄 Creando usuario: ${datos['nombre']}');
 
-    if (creado) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Usuario creado correctamente'),
-            ],
-          ),
+      final nuevoUsuario = Usuario(
+        usuarioCodigo: '', // El backend asigna el código
+        usuarioNombre: datos['nombre'],
+        usuarioEmail: datos['email'],
+        usuarioDireccion: datos['direccion'] ?? '',
+        usuarioTelefono: datos['telefono'] ?? '',
+        usuarioFechaRegistrosinFormatear: '', // El backend asigna la fecha
+        usuarioEstado: 'A', // Activo por defecto
+        usuarioRol: datos['rol'],
+      );
+
+      final creado = await UsuarioService.crearUsuario(nuevoUsuario);
+
+      if (!mounted) return;
+
+      if (creado) {
+        _mostrarSnackBarSeguro(
+          'Usuario creado correctamente',
           backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.error, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Error al crear usuario'),
-            ],
-          ),
+          icono: Icons.check_circle,
+        );
+
+        print('✅ Usuario creado exitosamente');
+
+        // CORRECCIÓN: Retornar true para confirmar la creación
+        Navigator.pop(context, true);
+      } else {
+        _mostrarSnackBarSeguro(
+          'Error al crear usuario',
           backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+          icono: Icons.error,
+        );
+        print('❌ Error: Backend retornó false');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      _mostrarSnackBarSeguro(
+        'Error al crear usuario: $e',
+        backgroundColor: AppColors.error,
+        icono: Icons.error,
       );
+      print('❌ Error en crear: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _cargando = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1A202C) : AppColors.background,
       body: SafeArea(
@@ -111,6 +161,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
             position: _slideAnimation,
             child: CustomScrollView(
               slivers: [
+                // AppBar personalizado
                 SliverAppBar(
                   expandedHeight: 140,
                   floating: false,
@@ -145,6 +196,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                               const SizedBox(height: 40),
                               Row(
                                 children: [
+                                  // Icono con gradiente
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -198,6 +250,8 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                     ),
                   ),
                 ),
+
+                // Formulario
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -207,9 +261,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark 
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.black.withOpacity(0.1),
+                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -229,6 +281,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'email',
                                 label: 'Correo electrónico',
@@ -241,6 +294,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'direccion',
                                 label: 'Dirección',
@@ -248,6 +302,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               _buildTextField(
                                 name: 'telefono',
                                 label: 'Teléfono',
@@ -256,8 +311,10 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
                                 isDark: isDark,
                               ),
                               const SizedBox(height: 20),
+
                               const DropdownRolUsuario(),
                               const SizedBox(height: 32),
+
                               _buildSaveButton(isDark),
                             ],
                           ),
@@ -299,7 +356,7 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
           color: isDark ? Colors.white70 : AppColors.textSecondary,
         ),
         filled: true,
-        fillColor: isDark 
+        fillColor: isDark
             ? const Color(0xFF1A202C).withOpacity(0.5)
             : AppColors.background.withOpacity(0.5),
         border: OutlineInputBorder(
@@ -309,24 +366,18 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: isDark 
+            color: isDark
                 ? Colors.white.withOpacity(0.2)
                 : AppColors.textSecondary.withOpacity(0.2),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: AppColors.primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: AppColors.error,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: AppColors.error, width: 2),
         ),
       ),
     );
@@ -340,49 +391,51 @@ class _CrearUsuarioScreenState extends State<CrearUsuarioScreen> with TickerProv
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: cargando 
+          colors: _cargando
               ? [Colors.grey, Colors.grey.shade400]
               : [AppColors.primary, AppColors.secondary],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: cargando ? [] : [
+        boxShadow: !_cargando
+            ? [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
-        ],
+        ]
+            : null,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: cargando ? null : guardar,
+          onTap: _cargando ? null : _guardar,
           borderRadius: BorderRadius.circular(16),
           child: Center(
-            child: cargando
+            child: _cargando
                 ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
                 : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.save, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
-                        'Crear Usuario',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.save, color: Colors.white),
+                SizedBox(width: 8),
+                Text(
+                  'Crear Usuario',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -36,6 +36,9 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
   late Animation<double> _scaleAnimation;
   late Animation<double> _elevationAnimation;
 
+  // CORRECCIÓN: Añadir referencia segura al ScaffoldMessenger
+  ScaffoldMessengerState? _scaffoldMessenger;
+
   @override
   void initState() {
     super.initState();
@@ -51,10 +54,44 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
     );
   }
 
+  // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
+  }
+
   @override
   void dispose() {
+    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
     _animationController.dispose();
     super.dispose();
+  }
+
+  // CORRECCIÓN: Método seguro para mostrar SnackBar
+  void _mostrarSnackBarSeguro(String mensaje, {required Color backgroundColor, IconData? icono}) {
+    if (!mounted || _scaffoldMessenger == null) return;
+
+    try {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              if (icono != null) ...[
+                Icon(icono, color: Colors.white),
+                const SizedBox(width: 8),
+              ],
+              Text(mensaje, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      print('Error mostrando SnackBar: $e');
+    }
   }
 
   bool get _esActivo => widget.usuario.usuarioEstado == 'A';
@@ -63,7 +100,7 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
@@ -81,13 +118,13 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
                 borderRadius: BorderRadius.circular(20),
                 border: widget.enModoEdicion
                     ? Border.all(
-                        color: AppColors.primary.withValues(alpha:0.5),
-                        width: 2,
-                      )
+                  color: AppColors.primary.withValues(alpha:0.5),
+                  width: 2,
+                )
                     : null,
                 boxShadow: [
                   BoxShadow(
-                    color: isDark 
+                    color: isDark
                         ? Colors.black.withValues(alpha:0.3)
                         : Colors.black.withValues(alpha:0.08),
                     blurRadius: _elevationAnimation.value,
@@ -129,6 +166,8 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
                       onUsuarioEliminado: widget.onUsuarioEliminado,
                       onUsuarioActualizado: widget.onUsuarioActualizado,
                       isDark: isDark,
+                      // CORRECCIÓN: Pasar método seguro de SnackBar
+                      onMostrarMensaje: _mostrarSnackBarSeguro,
                     ),
                   ],
                 ),
@@ -141,6 +180,7 @@ class _UsuarioCardState extends State<UsuarioCard> with TickerProviderStateMixin
   }
 }
 
+// Las clases _AvatarUsuario e _InfoUsuario permanecen igual...
 class _AvatarUsuario extends StatelessWidget {
   final Usuario usuario;
   final bool esActivo;
@@ -241,12 +281,12 @@ class _InfoUsuario extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: esActivo 
+                color: esActivo
                     ? AppColors.success.withValues(alpha:0.1)
                     : AppColors.error.withValues(alpha:0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: esActivo 
+                  color: esActivo
                       ? AppColors.success.withValues(alpha:0.3)
                       : AppColors.error.withValues(alpha:0.3),
                 ),
@@ -335,6 +375,9 @@ class _AccionesUsuario extends StatelessWidget {
   final VoidCallback onUsuarioActualizado;
   final bool isDark;
 
+  // CORRECCIÓN: Añadir callback para mostrar mensajes seguros
+  final Function(String mensaje, {required Color backgroundColor, IconData? icono}) onMostrarMensaje;
+
   const _AccionesUsuario({
     required this.enModoEdicion,
     required this.cargando,
@@ -345,6 +388,7 @@ class _AccionesUsuario extends StatelessWidget {
     required this.onUsuarioEliminado,
     required this.onUsuarioActualizado,
     required this.isDark,
+    required this.onMostrarMensaje,
   });
 
   @override
@@ -354,56 +398,58 @@ class _AccionesUsuario extends StatelessWidget {
       transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
       child: enModoEdicion
           ? _BotonesEdicion(
-              key: const ValueKey('edicion'),
-              usuario: usuario,
-              onUsuarioEliminado: onUsuarioEliminado,
-              onUsuarioActualizado: onUsuarioActualizado,
-              isDark: isDark,
-            )
+        key: const ValueKey('edicion'),
+        usuario: usuario,
+        onUsuarioEliminado: onUsuarioEliminado,
+        onUsuarioActualizado: onUsuarioActualizado,
+        isDark: isDark,
+        // CORRECCIÓN: Pasar callback seguro
+        onMostrarMensaje: onMostrarMensaje,
+      )
           : (!esAdmin
-              ? (cargando
-                  ? Container(
-                      key: const ValueKey('loading'),
-                      width: 24,
-                      height: 24,
-                      padding: const EdgeInsets.all(2),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                      ),
-                    )
-                  : Transform.scale(
-                      key: const ValueKey('checkbox'),
-                      scale: 1.2,
-                      child: Checkbox(
-                        value: seleccionado,
-                        onChanged: onChanged,
-                        activeColor: AppColors.success,
-                        checkColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ))
-              : Container(
-                  key: const ValueKey('admin'),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha:0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.warning.withValues(alpha:0.3),
-                    ),
-                  ),
-                  child: Text(
-                    'ADMIN',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.warning,
-                    ),
-                  ),
-                )),
+          ? (cargando
+          ? Container(
+        key: const ValueKey('loading'),
+        width: 24,
+        height: 24,
+        padding: const EdgeInsets.all(2),
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+        ),
+      )
+          : Transform.scale(
+        key: const ValueKey('checkbox'),
+        scale: 1.2,
+        child: Checkbox(
+          value: seleccionado,
+          onChanged: onChanged,
+          activeColor: AppColors.success,
+          checkColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ))
+          : Container(
+        key: const ValueKey('admin'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha:0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha:0.3),
+          ),
+        ),
+        child: Text(
+          'ADMIN',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: AppColors.warning,
+          ),
+        ),
+      )),
     );
   }
 }
@@ -414,12 +460,16 @@ class _BotonesEdicion extends StatelessWidget {
   final VoidCallback onUsuarioActualizado;
   final bool isDark;
 
+  // CORRECCIÓN: Añadir callback para mostrar mensajes seguros
+  final Function(String mensaje, {required Color backgroundColor, IconData? icono}) onMostrarMensaje;
+
   const _BotonesEdicion({
     super.key,
     required this.usuario,
     required this.onUsuarioEliminado,
     required this.onUsuarioActualizado,
     required this.isDark,
+    required this.onMostrarMensaje,
   });
 
   @override
@@ -460,95 +510,99 @@ class _BotonesEdicion extends StatelessWidget {
         _IconoAccion(
           icono: Icons.delete_outline,
           color: AppColors.error,
-          onTap: () async {
-            final confirmar = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: isDark ? const Color(0xFF2D3748) : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                title: Text(
-                  '¿Eliminar usuario?',
-                  style: TextStyle(
-                    color: isDark ? Colors.white : AppColors.textPrimary,
-                  ),
-                ),
-                content: Text(
-                  '¿Estás seguro de eliminar a "${usuario.usuarioNombre}"? Esta acción no se puede deshacer.',
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : AppColors.textSecondary,
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text(
-                      'Cancelar',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.error, AppColors.error.withValues(alpha:0.8)],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text(
-                        'Eliminar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-
-            if (confirmar == true) {
-              final eliminado = await UsuarioService.eliminarUsuario(
-                usuario.usuarioCodigo,
-              );
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        Icon(
-                          eliminado ? Icons.check_circle : Icons.error,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          eliminado
-                              ? 'Usuario eliminado correctamente'
-                              : 'Error al eliminar usuario',
-                        ),
-                      ],
-                    ),
-                    backgroundColor: eliminado ? AppColors.success : AppColors.error,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-                if (eliminado) {
-                  onUsuarioEliminado();
-                }
-              }
-            }
-          },
+          onTap: () => _eliminarUsuario(context),
           isDark: isDark,
         ),
       ],
     );
+  }
+
+  // CORRECCIÓN CRÍTICA: Método eliminar separado y seguro
+  Future<void> _eliminarUsuario(BuildContext context) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF2D3748) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          '¿Eliminar usuario?',
+          style: TextStyle(
+            color: isDark ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          '¿Estás seguro de eliminar a "${usuario.usuarioNombre}"? Esta acción no se puede deshacer.',
+          style: TextStyle(
+            color: isDark ? Colors.white70 : AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.error, AppColors.error.withValues(alpha:0.8)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      print('🗑️ Eliminando usuario: ${usuario.usuarioNombre}');
+
+      final eliminado = await UsuarioService.eliminarUsuario(
+        usuario.usuarioCodigo,
+      );
+
+      // CORRECCIÓN: Usar callback seguro en lugar de ScaffoldMessenger directo
+      if (eliminado) {
+        onMostrarMensaje(
+          'Usuario eliminado correctamente',
+          backgroundColor: AppColors.success,
+          icono: Icons.check_circle,
+        );
+
+        print('✅ Usuario eliminado exitosamente');
+        onUsuarioEliminado(); // Solo llamar si fue exitoso
+      } else {
+        onMostrarMensaje(
+          'Error al eliminar usuario',
+          backgroundColor: AppColors.error,
+          icono: Icons.error,
+        );
+        print('❌ Error: Backend retornó false');
+      }
+    } catch (e) {
+      onMostrarMensaje(
+        'Error al eliminar usuario: $e',
+        backgroundColor: AppColors.error,
+        icono: Icons.error,
+      );
+      print('❌ Error en eliminar: $e');
+    }
   }
 }
 
@@ -569,50 +623,59 @@ class _IconoAccion extends StatefulWidget {
   State<_IconoAccion> createState() => _IconoAccionState();
 }
 
-class _IconoAccionState extends State<_IconoAccion> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+class _IconoAccionState extends State<_IconoAccion>
+    with SingleTickerProviderStateMixin {
+  late AnimationController controller;
+  late Animation<double> scaleAnimation;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    controller = AnimationController(
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: controller, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _disposed = true;
+    controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_disposed) return const SizedBox.shrink();
+
     return AnimatedBuilder(
-      animation: _scaleAnimation,
+      animation: scaleAnimation,
       builder: (context, child) {
         return Transform.scale(
-          scale: _scaleAnimation.value,
+          scale: scaleAnimation.value,
           child: GestureDetector(
-            onTapDown: (_) => _controller.forward(),
-            onTapUp: (_) {
-              _controller.reverse();
-              widget.onTap();
+            onTapDown: (_) {
+              if (!_disposed && mounted) controller.forward();
             },
-            onTapCancel: () => _controller.reverse(),
+            onTapUp: (_) {
+              if (!_disposed && mounted) {
+                controller.reverse();
+                widget.onTap();
+              }
+            },
+            onTapCancel: () {
+              if (!_disposed && mounted) controller.reverse();
+            },
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: widget.color.withValues(alpha:0.1),
+                color: widget.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: widget.color.withValues(alpha:0.3),
-                ),
+                border: Border.all(color: widget.color.withValues(alpha: 0.3)),
               ),
               child: Icon(
                 widget.icono,
