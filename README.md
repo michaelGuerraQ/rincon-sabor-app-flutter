@@ -1,8 +1,3 @@
-
-# Rincon Sabor Flutter
-
-Rincon Sabor Flutter es una aplicación móvil desarrollada en Flutter para gestionar las operaciones de un restaurante, incluyendo la toma de pedidos, la gestión de mesas y la coordinación entre meseros y cocineros.
-
 # Rincon Sabor Flutter
 
 Rincon Sabor Flutter es una aplicación móvil desarrollada en Flutter para gestionar las operaciones de un restaurante, incluyendo la toma de pedidos, la gestión de mesas y la coordinación entre meseros y cocineros.
