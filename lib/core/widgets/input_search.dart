@@ -16,8 +16,9 @@ class CustomSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const Key('searchbar_container'), // 🔑 contenedor principal
       decoration: BoxDecoration(
-        color: const Color(0xFF2D3748), // Superficie dark
+        color: const Color(0xFF2D3748),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: AppColors.primary.withOpacity(0.2),
@@ -36,6 +37,7 @@ class CustomSearchBar extends StatelessWidget {
         ],
       ),
       child: TextField(
+        key: const Key('searchbar_input'), // 🔑 campo de texto
         controller: controller,
         onChanged: onChanged,
         style: const TextStyle(
@@ -77,27 +79,28 @@ class CustomSearchBar extends StatelessWidget {
           ),
           suffixIcon: controller != null && controller!.text.isNotEmpty
               ? Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.error.withOpacity(0.3),
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.clear_rounded,
-                      color: AppColors.error,
-                      size: 18,
-                    ),
-                    onPressed: () {
-                      controller!.clear();
-                      onChanged('');
-                    },
-                    tooltip: 'Limpiar búsqueda',
-                  ),
-                )
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.error.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.error.withOpacity(0.3),
+              ),
+            ),
+            child: IconButton(
+              key: const Key('searchbar_clear'), // 🔑 botón de limpiar
+              icon: const Icon(
+                Icons.clear_rounded,
+                color: AppColors.error,
+                size: 18,
+              ),
+              onPressed: () {
+                controller!.clear();
+                onChanged('');
+              },
+              tooltip: 'Limpiar búsqueda',
+            ),
+          )
               : null,
         ),
       ),

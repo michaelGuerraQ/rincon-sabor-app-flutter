@@ -23,6 +23,7 @@ class AppFormField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FormBuilderTextField(
+      key: Key('field_$name'), //  Clave dinámica: única por campo
       name: name,
       initialValue: initialValue,
       obscureText: obscureText,
@@ -30,7 +31,7 @@ class AppFormField extends StatelessWidget {
         enabledBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: Colors.white),
         ),
-        focusedBorder: OutlineInputBorder(
+        focusedBorder: const OutlineInputBorder(
           borderSide: BorderSide(color: Colors.grey),
         ),
         fillColor: Colors.grey.shade200,

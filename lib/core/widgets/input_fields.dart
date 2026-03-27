@@ -15,9 +15,13 @@ class CustomInputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: Key('input_$label'), // 🔑 Key dinámica para pruebas
       controller: controller,
       obscureText: obscure,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 }

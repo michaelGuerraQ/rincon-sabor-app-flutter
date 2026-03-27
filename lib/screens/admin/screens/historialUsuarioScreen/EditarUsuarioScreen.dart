@@ -23,7 +23,6 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // CORRECCIÓN: Añadir referencia segura al ScaffoldMessenger
   ScaffoldMessengerState? _scaffoldMessenger;
 
   @override
@@ -40,11 +39,9 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
-
     _animationController.forward();
   }
 
-  // CORRECCIÓN: Guardar referencia del ScaffoldMessenger
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -53,18 +50,18 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
 
   @override
   void dispose() {
-    _scaffoldMessenger = null; // CORRECCIÓN: Limpiar referencia
+    _scaffoldMessenger = null;
     _animationController.dispose();
     super.dispose();
   }
 
-  // CORRECCIÓN: Método seguro para mostrar SnackBar
   void _mostrarSnackBarSeguro(String mensaje, {required Color backgroundColor}) {
     if (!mounted || _scaffoldMessenger == null) return;
 
     try {
       _scaffoldMessenger!.showSnackBar(
         SnackBar(
+          key: const Key('snackbar_editar_usuario'),
           content: Row(
             children: [
               Icon(
@@ -85,20 +82,13 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
     }
   }
 
-  // CORRECCIÓN CRÍTICA: Método actualizar sin UI optimista
   Future<void> _actualizar() async {
     if (!_formKey.currentState!.saveAndValidate()) return;
 
     final datos = _formKey.currentState!.value;
-
-    // CORRECCIÓN: NO cambiar el estado de inmediato
-    setState(() {
-      _cargando = true;
-    });
+    setState(() => _cargando = true);
 
     try {
-      print('🔄 Actualizando usuario ${widget.usuario.usuarioNombre}...');
-
       final usuarioActualizado = Usuario(
         usuarioCodigo: widget.usuario.usuarioCodigo,
         usuarioNombre: datos['nombre'],
@@ -119,32 +109,21 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
           'Usuario actualizado correctamente',
           backgroundColor: AppColors.success,
         );
-
-        print('✅ Usuario actualizado exitosamente');
-
-        // CORRECCIÓN: Retornar true para confirmar la actualización
         Navigator.pop(context, true);
       } else {
         _mostrarSnackBarSeguro(
           'No se pudo actualizar el usuario',
           backgroundColor: AppColors.error,
         );
-        print('❌ Error: Backend retornó false');
       }
     } catch (e) {
       if (!mounted) return;
-
       _mostrarSnackBarSeguro(
         'Error al actualizar usuario: $e',
         backgroundColor: AppColors.error,
       );
-      print('❌ Error en actualizar: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _cargando = false;
-        });
-      }
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
@@ -153,6 +132,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      key: const Key('editar_usuario_screen'),
       backgroundColor: isDark ? const Color(0xFF1A202C) : AppColors.background,
       body: SafeArea(
         child: FadeTransition(
@@ -161,187 +141,83 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
             position: _slideAnimation,
             child: CustomScrollView(
               slivers: [
-                // AppBar personalizado
                 SliverAppBar(
                   expandedHeight: 140,
-                  floating: false,
                   pinned: true,
                   backgroundColor: Colors.transparent,
-                  elevation: 0,
                   leading: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios,
-                      color: isDark ? Colors.white : AppColors.textPrimary,
-                    ),
+                    key: const Key('btn_back_editar'),
+                    icon: Icon(Icons.arrow_back_ios, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
+                  flexibleSpace: const FlexibleSpaceBar(
+                    background: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.info.withOpacity(0.1),
-                            AppColors.primary.withOpacity(0.05),
-                          ],
-                        ),
-                      ),
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 40),
-                              Row(
-                                children: [
-                                  // Icono con gradiente
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [AppColors.info, AppColors.primary],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.info.withOpacity(0.3),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.edit,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Editar Usuario',
-                                          style: TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white : AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Modificando ${widget.usuario.usuarioNombre}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isDark ? Colors.white70 : AppColors.textSecondary,
-                                          ),
-                                        ),
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 4),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.info.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            widget.usuario.usuarioRol.toUpperCase(),
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.info,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                          colors: [Color(0xFF2D9CDB), Color(0xFF56CCF2)],
                         ),
                       ),
                     ),
                   ),
                 ),
 
-                // Formulario
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2D3748) : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
+                    child: FormBuilder(
+                      key: _formKey,
+                      initialValue: {
+                        'nombre': widget.usuario.usuarioNombre,
+                        'email': widget.usuario.usuarioEmail,
+                        'direccion': widget.usuario.usuarioDireccion,
+                        'telefono': widget.usuario.usuarioTelefono,
+                        'rol': widget.usuario.usuarioRol,
+                      },
+                      child: Column(
+                        children: [
+                          _buildTextField(
+                            key: const Key('edit_field_nombre'),
+                            name: 'nombre',
+                            label: 'Nombre completo',
+                            icon: Icons.person_outline,
+                            validator: FormBuilderValidators.required(),
+                            isDark: isDark,
                           ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            key: const Key('edit_field_email'),
+                            name: 'email',
+                            label: 'Correo electrónico',
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            validator: FormBuilderValidators.compose([
+                              FormBuilderValidators.required(),
+                              FormBuilderValidators.email(),
+                            ]),
+                            isDark: isDark,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            key: const Key('edit_field_direccion'),
+                            name: 'direccion',
+                            label: 'Dirección',
+                            icon: Icons.location_on_outlined,
+                            isDark: isDark,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            key: const Key('edit_field_telefono'),
+                            name: 'telefono',
+                            label: 'Teléfono',
+                            icon: Icons.phone_outlined,
+                            keyboardType: TextInputType.phone,
+                            isDark: isDark,
+                          ),
+                          const SizedBox(height: 20),
+                          const DropdownRolUsuario(key: Key('edit_dropdown_rol')),
+                          const SizedBox(height: 32),
+                          _buildUpdateButton(isDark),
                         ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: FormBuilder(
-                          key: _formKey,
-                          initialValue: {
-                            'nombre': widget.usuario.usuarioNombre,
-                            'email': widget.usuario.usuarioEmail,
-                            'direccion': widget.usuario.usuarioDireccion,
-                            'telefono': widget.usuario.usuarioTelefono,
-                            'rol': widget.usuario.usuarioRol,
-                          },
-                          child: Column(
-                            children: [
-                              _buildTextField(
-                                name: 'nombre',
-                                label: 'Nombre completo',
-                                icon: Icons.person_outline,
-                                validator: FormBuilderValidators.required(),
-                                isDark: isDark,
-                              ),
-                              const SizedBox(height: 20),
-
-                              _buildTextField(
-                                name: 'email',
-                                label: 'Correo electrónico',
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: FormBuilderValidators.compose([
-                                  FormBuilderValidators.required(),
-                                  FormBuilderValidators.email(),
-                                ]),
-                                isDark: isDark,
-                              ),
-                              const SizedBox(height: 20),
-
-                              _buildTextField(
-                                name: 'direccion',
-                                label: 'Dirección',
-                                icon: Icons.location_on_outlined,
-                                isDark: isDark,
-                              ),
-                              const SizedBox(height: 20),
-
-                              _buildTextField(
-                                name: 'telefono',
-                                label: 'Teléfono',
-                                icon: Icons.phone_outlined,
-                                keyboardType: TextInputType.phone,
-                                isDark: isDark,
-                              ),
-                              const SizedBox(height: 20),
-
-                              const DropdownRolUsuario(),
-                              const SizedBox(height: 32),
-
-                              _buildUpdateButton(isDark),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                   ),
@@ -355,6 +231,7 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
   }
 
   Widget _buildTextField({
+    required Key key,
     required String name,
     required String label,
     required IconData icon,
@@ -363,71 +240,31 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
     String? Function(String?)? validator,
   }) {
     return FormBuilderTextField(
+      key: key,
       name: name,
       keyboardType: keyboardType,
       validator: validator,
-      style: TextStyle(
-        color: isDark ? Colors.white : AppColors.textPrimary,
-      ),
+      style: TextStyle(color: isDark ? Colors.white : AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(
-          icon,
-          color: AppColors.info,
-        ),
-        labelStyle: TextStyle(
-          color: isDark ? Colors.white70 : AppColors.textSecondary,
-        ),
-        filled: true,
-        fillColor: isDark
-            ? const Color(0xFF1A202C).withOpacity(0.5)
-            : AppColors.background.withOpacity(0.5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: isDark
-                ? Colors.white.withOpacity(0.2)
-                : AppColors.textSecondary.withOpacity(0.2),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.info, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.error, width: 2),
-        ),
+        prefixIcon: Icon(icon, color: AppColors.info),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
   Widget _buildUpdateButton(bool isDark) {
     return Container(
+      key: const Key('btn_actualizar'),
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
           colors: _cargando
               ? [Colors.grey, Colors.grey.shade400]
               : [AppColors.info, AppColors.primary],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: !_cargando
-            ? [
-          BoxShadow(
-            color: AppColors.info.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ]
-            : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -436,27 +273,18 @@ class _EditarUsuarioScreenState extends State<EditarUsuarioScreen>
           borderRadius: BorderRadius.circular(16),
           child: Center(
             child: _cargando
-                ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
+                ? const CircularProgressIndicator(
+              key: Key('progress_actualizar'),
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
             )
                 : const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.update, color: Colors.white),
                 SizedBox(width: 8),
-                Text(
-                  'Actualizar Usuario',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text('Actualizar Usuario',
+                    style: TextStyle(color: Colors.white, fontSize: 16)),
               ],
             ),
           ),

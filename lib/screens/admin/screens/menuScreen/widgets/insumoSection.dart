@@ -7,6 +7,7 @@ class InsumoSection extends StatelessWidget {
   const InsumoSection({super.key});
 
   Widget _buildTextField({
+    required Key key,
     required TextEditingController controller,
     required String label,
     required bool isDark,
@@ -14,6 +15,7 @@ class InsumoSection extends StatelessWidget {
     String? suffixText,
   }) {
     return Container(
+      key: key,
       margin: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
@@ -50,9 +52,9 @@ class InsumoSection extends StatelessWidget {
             ),
           ),
           filled: true,
-          fillColor: isDark 
-            ? Colors.white.withValues(alpha: 0.05)
-            : AppColors.background,
+          fillColor: isDark
+              ? Colors.white.withOpacity(0.05)
+              : AppColors.background,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,
@@ -66,23 +68,24 @@ class InsumoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final m = context.watch<AgregarMenuModel>();
-    
+
     return Container(
+      key: const Key('insumo_section'),
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2D3748) : AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark 
-            ? Colors.white.withValues(alpha: 0.1)
-            : AppColors.divider,
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : AppColors.divider,
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark 
-              ? Colors.black.withValues(alpha: 0.2)
-              : Colors.grey.withValues(alpha: 0.1),
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -92,11 +95,12 @@ class InsumoSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            key: const Key('insumo_header'),
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
+                  color: AppColors.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -112,6 +116,7 @@ class InsumoSection extends StatelessWidget {
                   children: [
                     Text(
                       'Información del Insumo',
+                      key: const Key('insumo_title'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -122,7 +127,8 @@ class InsumoSection extends StatelessWidget {
                       'Datos básicos del producto',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? Colors.white70 : AppColors.textSecondary,
+                        color:
+                        isDark ? Colors.white70 : AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -132,22 +138,27 @@ class InsumoSection extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _buildTextField(
+            key: const Key('insumo_unidad_field'),
             controller: m.unitCtrl,
             label: 'Unidad de medida',
             isDark: isDark,
             suffixText: 'kg, und, lt',
           ),
           _buildTextField(
+            key: const Key('insumo_cantidad_field'),
             controller: m.stockCtrl,
             label: 'Cantidad comprada (cantidad de unidades)',
             isDark: isDark,
-            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
           ),
           _buildTextField(
+            key: const Key('insumo_costo_field'),
             controller: m.compraCtrl,
             label: 'Costo total de compra',
             isDark: isDark,
-            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
             suffixText: 'S/.',
           ),
         ],
