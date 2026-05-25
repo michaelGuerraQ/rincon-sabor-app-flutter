@@ -4,10 +4,6 @@ Rincon Sabor Flutter es una aplicación móvil desarrollada en Flutter para gest
 
 ## backend de la app para que funcione la base de datos :D
 
-```bash
-git clone https://github.com/Jonathan03R/backend_rincon_sabor.git
-```
-
 
 ## Requisitos Previos
 
